@@ -30,3 +30,6 @@ Thumbs.db
 test-project/
 acme-client-intake/
 *-demo/
+
+# Worktrees
+.worktrees/
