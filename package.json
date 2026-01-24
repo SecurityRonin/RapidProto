@@ -1,0 +1,25 @@
+{
+  "name": "@rapidproto/core",
+  "version": "1.0.0",
+  "description": "RapidProto - From discovery to demo in 50 minutes",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "rapid-prototyping",
+    "mvp",
+    "demo",
+    "client-engagement"
+  ],
+  "author": "RapidProto Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@vitest/coverage-v8": "^1.1.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0"
+  }
+}
