@@ -33,3 +33,4 @@ acme-client-intake/
 
 # Worktrees
 .worktrees/
+**/CLAUDE.md
