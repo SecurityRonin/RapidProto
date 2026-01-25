@@ -10,7 +10,8 @@ import {
   type ReactNode,
 } from 'react'
 import { getSessionStatus } from '@/lib/actions'
-import type { SessionStatusData, ClientInfoParsed, TimeRemaining } from '@/types/actions'
+import type { SessionStatusData, ClientInfoParsed, ClientInfoRaw, TimeRemaining } from '@/types/actions'
+import { parseStringArray } from '@/lib/utils/json-fields'
 
 interface SessionContextValue {
   // Data
@@ -153,7 +154,17 @@ export function useSessionSteps() {
 
 export function useClientInfo(): ClientInfoParsed | null {
   const { session } = useSession()
-  return session?.clientInfo ?? null
+  const raw = session?.clientInfo
+  if (!raw) return null
+
+  // Parse JSON fields from raw database format
+  return {
+    ...raw,
+    threeWins: parseStringArray(raw.threeWins),
+    painPoints: parseStringArray(raw.painPoints),
+    mustHaveFeatures: parseStringArray(raw.mustHaveFeatures),
+    niceToHaveFeatures: parseStringArray(raw.niceToHaveFeatures),
+  } as ClientInfoParsed
 }
 
 export function useCurrentPhase() {

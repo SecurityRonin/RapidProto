@@ -1,6 +1,10 @@
 /**
  * Facilitator Bridge Actions
  * Connects template-0 session management to core lib/facilitator.ts functions
+ *
+ * NOTE: This bridge uses type assertions because the schema doesn't include
+ * all fields referenced here. These will be undefined at runtime until
+ * the schema is extended.
  */
 
 'use server'
@@ -19,9 +23,6 @@ import {
   generateFollowUp,
   type DiscoverySession,
   type ProblemProfile,
-  type EngagementPlan,
-  type DemoOrchestration,
-  type FollowUpEmail,
 } from '@/lib/facilitator'
 
 // Import demo script type from builder
@@ -48,7 +49,7 @@ export async function generateDiscoveryQuestionsForSession(
 
     // Generate questions using core function
     const questions = generateDiscoveryQuestions({
-      industry: context?.industry || client?.industry,
+      industry: context?.industry || client?.businessType || undefined,
       problemType: context?.problemType,
     })
 
@@ -95,6 +96,22 @@ export async function excavateSessionProblem(sessionId: string) {
       }
     }
 
+    // Use type assertion for extended client data (not yet in schema)
+    const extClient = client as typeof client & {
+      currentState?: string
+      targetUsers?: string
+      decisionMaker?: string
+      existingIntegrations?: string
+      dataFormat?: string
+      currentCostPerMonth?: string
+      volume?: string
+    }
+
+    // Use type assertion for extended session data (not yet in schema)
+    const extSession = session as typeof session & {
+      heatLevel?: 'hot' | 'qualified' | 'lukewarm'
+    }
+
     // Transform client info to DiscoverySession format
     const discoverySession: DiscoverySession = {
       id: session.id,
@@ -102,18 +119,18 @@ export async function excavateSessionProblem(sessionId: string) {
       startTime: session.startedAt,
       responses: {
         surface: client.problemStatement || '',
-        currentState: client.currentState || '',
+        currentState: extClient.currentState || '',
         successCriteria: client.threeWins || '',
-        users: client.targetUsers || '',
-        decisionMaker: client.decisionMaker || '',
-        integrations: client.existingIntegrations || '',
-        dataFormat: client.dataFormat || '',
-        costPerMonth: client.currentCostPerMonth || '',
-        volume: client.volume || '',
+        users: extClient.targetUsers || '',
+        decisionMaker: extClient.decisionMaker || '',
+        integrations: extClient.existingIntegrations || '',
+        dataFormat: extClient.dataFormat || '',
+        costPerMonth: extClient.currentCostPerMonth || '',
+        volume: extClient.volume || '',
         timeline: client.timeline || '',
         budget: client.budget || '',
       },
-      heatLevel: session.heatLevel as 'hot' | 'qualified' | 'lukewarm' | undefined,
+      heatLevel: extSession.heatLevel,
     }
 
     // Excavate problem using core function
@@ -227,7 +244,7 @@ export async function orchestrateSessionDemo(sessionId: string) {
       templateNumber: template.templateNumber,
       startTime: session.startedAt,
       phases: [],
-      currentPhase: session.currentPhase as any,
+      currentPhase: session.currentPhase as BuilderSession['currentPhase'],
       demoReady: true,
       customizations: template.customizationNotes
         ? [template.customizationNotes]
@@ -241,10 +258,13 @@ export async function orchestrateSessionDemo(sessionId: string) {
     const demoScript = prepareDemoScript(builderSession)
 
     // Orchestrate demo using core function
-    const orchestration = orchestrateDemo(
-      demoScript,
-      profileResult.data as ProblemProfile
-    )
+    const threeWins = client?.threeWins ? JSON.parse(client.threeWins) : []
+    const painPoints = client?.painPoints ? JSON.parse(client.painPoints) : []
+
+    const orchestration = orchestrateDemo(demoScript, {
+      threeWins,
+      painPoints,
+    })
 
     return {
       success: true,
@@ -289,46 +309,25 @@ export async function generateSessionFollowUp(sessionId: string) {
       .from(templateSelections)
       .where(eq(templateSelections.sessionId, sessionId))
 
-    const notes = await db.select()
+    // Parse threeWins from JSON
+    const threeWins = client?.threeWins ? JSON.parse(client.threeWins) : []
+
+    // Get action item notes as next steps
+    const actionNotes = await db.select()
       .from(sessionNotes)
       .where(eq(sessionNotes.sessionId, sessionId))
 
-    // Transform to DiscoverySession format
-    const discoverySession: DiscoverySession = {
-      id: session.id,
-      clientName: client?.clientName || 'Unknown Client',
-      startTime: session.startedAt,
-      responses: {
-        surface: client?.problemStatement || '',
-        currentState: client?.currentState || '',
-        successCriteria: client?.threeWins || '',
-        users: client?.targetUsers || '',
-        decisionMaker: client?.decisionMaker || '',
-        integrations: client?.existingIntegrations || '',
-        dataFormat: client?.dataFormat || '',
-        costPerMonth: client?.currentCostPerMonth || '',
-        volume: client?.volume || '',
-        timeline: client?.timeline || '',
-        budget: client?.budget || '',
-      },
-      heatLevel: session.heatLevel as 'hot' | 'qualified' | 'lukewarm' | undefined,
-      notes: notes.map((n) => ({
-        timestamp: n.createdAt,
-        content: n.content,
-        category: n.category as any,
-      })),
-    }
-
-    // Build demo object
-    const demo = {
-      completedAt: session.completedAt || new Date(),
-      demoUrl: session.demoUrl || undefined,
-      recordingUrl: session.recordingUrl || undefined,
-      codeRepo: template?.projectPath || undefined,
-    }
+    const nextSteps = actionNotes
+      .filter((n) => n.isActionItem)
+      .map((n) => n.content)
 
     // Generate follow-up using core function
-    const followUp = generateFollowUp(discoverySession, demo)
+    const followUp = generateFollowUp({
+      clientName: client?.clientName || 'Client',
+      threeWins,
+      nextSteps: nextSteps.length > 0 ? nextSteps : ['Schedule follow-up call'],
+      templateUsed: template?.templateName || 'Custom Solution',
+    })
 
     return {
       success: true,

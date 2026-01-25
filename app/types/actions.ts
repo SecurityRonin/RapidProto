@@ -91,7 +91,7 @@ export interface TemplateSelectionData {
   createdAt: Date
 }
 
-// Session with nested data
+// Session with nested data (for components that need full details)
 export interface SessionWithDetails {
   id: string
   role: Role
@@ -113,15 +113,15 @@ export interface SessionWithDetails {
   selectedTemplate: TemplateSelectionData | null
 }
 
-// Main session status response data
+// Main session status response data (flat structure as returned by action)
 export interface SessionStatusData {
-  session: SessionWithDetails
+  session: SessionData & { steps?: SessionStep[] }
   currentPhase: Phase
-  timeRemaining: TimeRemaining
+  timeRemaining: TimeRemaining | null
   stepsCompleted: number
   stepsTotal: number
-  clientInfo: ClientInfoParsed | null
-  selectedTemplate: TemplateSelectionData | null
+  clientInfo: ClientInfoRaw | null
+  selectedTemplate: TemplateSelectionRaw | null
 }
 
 // Session data as returned from database (without nested relations)
@@ -177,14 +177,14 @@ export interface TemplateSelectionRaw {
   templateCategory: string | null
   fitScore: number | null
   fitReason: string | null
-  isSelected: boolean
+  isSelected: boolean | null
   selectedAt: Date | null
   selectedBy: string | null
   customizationNotes: string | null
   estimatedBuildTime: number | null
   customFields: string | null
   customLogic: string | null
-  aiSuggested: boolean
+  aiSuggested: boolean | null
   aiReasoning: string | null
   createdAt: Date
 }
@@ -197,8 +197,8 @@ export interface SessionNoteRaw {
   content: string
   createdBy: Role
   tags: string | null  // JSON string
-  isPinned: boolean
-  isActionItem: boolean
+  isPinned: boolean | null
+  isActionItem: boolean | null
   createdAt: Date
   updatedAt: Date
 }
