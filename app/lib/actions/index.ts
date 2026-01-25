@@ -41,6 +41,20 @@ import {
 import { eq, and } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { z } from 'zod'
+import type {
+  ActionResponse,
+  CreateSessionResponse,
+  PauseSessionResponse,
+  ResumeSessionResponse,
+  AdvancePhaseResponse,
+  CompleteSessionResponse,
+  UpdateStepResponse,
+  SaveClientInfoResponse,
+  AddTemplateSelectionResponse,
+  AddNoteResponse,
+  SessionStatusResponse,
+  TimeRemainingResponse,
+} from '@/types/actions'
 
 // ============================================================================
 // Validation Schemas
@@ -153,11 +167,11 @@ function getFacilitatorSteps(): Array<{ phase: 'discovery' | 'build' | 'demo', s
 // Session Management Actions
 // ============================================================================
 
-export async function createSession(input: z.infer<typeof createSessionSchema>) {
+export async function createSession(input: z.infer<typeof createSessionSchema>): Promise<CreateSessionResponse> {
   try {
     const { userId } = auth()
     if (!userId) {
-      return { success: false, error: 'Unauthorized' }
+      return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }
     }
 
     const validated = createSessionSchema.parse(input)
@@ -218,27 +232,27 @@ export async function createSession(input: z.infer<typeof createSessionSchema>) 
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message }
+      return { success: false, error: error.errors[0].message, code: 'VALIDATION_ERROR' }
     }
-    return { success: false, error: 'Failed to create session' }
+    return { success: false, error: 'Failed to create session', code: 'INTERNAL_ERROR' }
   }
 }
 
-export async function pauseSession(sessionId: string) {
+export async function pauseSession(sessionId: string): Promise<PauseSessionResponse> {
   try {
     const { userId } = auth()
     if (!userId) {
-      return { success: false, error: 'Unauthorized' }
+      return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }
     }
 
     // Get current session
     const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId))
     if (!session) {
-      return { success: false, error: 'Session not found' }
+      return { success: false, error: 'Session not found', code: 'NOT_FOUND' }
     }
 
     if (session.status !== 'active') {
-      return { success: false, error: 'Session is not active' }
+      return { success: false, error: 'Session is not active', code: 'CONFLICT' }
     }
 
     const now = new Date()
@@ -258,25 +272,25 @@ export async function pauseSession(sessionId: string) {
       data: updated,
     }
   } catch (error) {
-    return { success: false, error: 'Failed to pause session' }
+    return { success: false, error: 'Failed to pause session', code: 'INTERNAL_ERROR' }
   }
 }
 
-export async function resumeSession(sessionId: string) {
+export async function resumeSession(sessionId: string): Promise<ResumeSessionResponse> {
   try {
     const { userId } = auth()
     if (!userId) {
-      return { success: false, error: 'Unauthorized' }
+      return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }
     }
 
     // Get current session
     const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId))
     if (!session) {
-      return { success: false, error: 'Session not found' }
+      return { success: false, error: 'Session not found', code: 'NOT_FOUND' }
     }
 
     if (session.status !== 'paused') {
-      return { success: false, error: 'Session is not paused' }
+      return { success: false, error: 'Session is not paused', code: 'CONFLICT' }
     }
 
     const now = new Date()
@@ -302,21 +316,21 @@ export async function resumeSession(sessionId: string) {
       data: updated,
     }
   } catch (error) {
-    return { success: false, error: 'Failed to resume session' }
+    return { success: false, error: 'Failed to resume session', code: 'INTERNAL_ERROR' }
   }
 }
 
-export async function advancePhase(sessionId: string) {
+export async function advancePhase(sessionId: string): Promise<AdvancePhaseResponse> {
   try {
     const { userId } = auth()
     if (!userId) {
-      return { success: false, error: 'Unauthorized' }
+      return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }
     }
 
     // Get current session
     const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId))
     if (!session) {
-      return { success: false, error: 'Session not found' }
+      return { success: false, error: 'Session not found', code: 'NOT_FOUND' }
     }
 
     // Determine next phase
@@ -326,7 +340,7 @@ export async function advancePhase(sessionId: string) {
     } else if (session.currentPhase === 'build') {
       nextPhase = 'demo'
     } else {
-      return { success: false, error: 'Cannot advance from demo phase' }
+      return { success: false, error: 'Cannot advance from demo phase', code: 'CONFLICT' }
     }
 
     const now = new Date()
@@ -346,25 +360,25 @@ export async function advancePhase(sessionId: string) {
       data: updated,
     }
   } catch (error) {
-    return { success: false, error: 'Failed to advance phase' }
+    return { success: false, error: 'Failed to advance phase', code: 'INTERNAL_ERROR' }
   }
 }
 
-export async function completeSession(sessionId: string) {
+export async function completeSession(sessionId: string): Promise<CompleteSessionResponse> {
   try {
     const { userId } = auth()
     if (!userId) {
-      return { success: false, error: 'Unauthorized' }
+      return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }
     }
 
     // Get current session
     const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId))
     if (!session) {
-      return { success: false, error: 'Session not found' }
+      return { success: false, error: 'Session not found', code: 'NOT_FOUND' }
     }
 
     if (session.status === 'completed') {
-      return { success: false, error: 'Session already completed' }
+      return { success: false, error: 'Session already completed', code: 'CONFLICT' }
     }
 
     const now = new Date()
@@ -390,7 +404,7 @@ export async function completeSession(sessionId: string) {
       },
     }
   } catch (error) {
-    return { success: false, error: 'Failed to complete session' }
+    return { success: false, error: 'Failed to complete session', code: 'INTERNAL_ERROR' }
   }
 }
 
@@ -398,11 +412,11 @@ export async function completeSession(sessionId: string) {
 // Step Management Actions
 // ============================================================================
 
-export async function updateStep(stepId: string, data: z.infer<typeof updateStepSchema>) {
+export async function updateStep(stepId: string, data: z.infer<typeof updateStepSchema>): Promise<UpdateStepResponse> {
   try {
     const { userId } = auth()
     if (!userId) {
-      return { success: false, error: 'Unauthorized' }
+      return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }
     }
 
     const validated = updateStepSchema.parse(data)
@@ -439,9 +453,9 @@ export async function updateStep(stepId: string, data: z.infer<typeof updateStep
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message }
+      return { success: false, error: error.errors[0].message, code: 'VALIDATION_ERROR' }
     }
-    return { success: false, error: 'Failed to update step' }
+    return { success: false, error: 'Failed to update step', code: 'INTERNAL_ERROR' }
   }
 }
 
@@ -449,11 +463,11 @@ export async function updateStep(stepId: string, data: z.infer<typeof updateStep
 // Client Info Actions
 // ============================================================================
 
-export async function saveClientInfo(sessionId: string, info: z.infer<typeof clientInfoSchema>) {
+export async function saveClientInfo(sessionId: string, info: z.infer<typeof clientInfoSchema>): Promise<SaveClientInfoResponse> {
   try {
     const { userId } = auth()
     if (!userId) {
-      return { success: false, error: 'Unauthorized' }
+      return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }
     }
 
     const validated = clientInfoSchema.parse(info)
@@ -518,9 +532,9 @@ export async function saveClientInfo(sessionId: string, info: z.infer<typeof cli
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message }
+      return { success: false, error: error.errors[0].message, code: 'VALIDATION_ERROR' }
     }
-    return { success: false, error: 'Failed to save client info' }
+    return { success: false, error: 'Failed to save client info', code: 'INTERNAL_ERROR' }
   }
 }
 
@@ -528,11 +542,11 @@ export async function saveClientInfo(sessionId: string, info: z.infer<typeof cli
 // Template Selection Actions
 // ============================================================================
 
-export async function addTemplateSelection(sessionId: string, selection: z.infer<typeof templateSelectionSchema>) {
+export async function addTemplateSelection(sessionId: string, selection: z.infer<typeof templateSelectionSchema>): Promise<AddTemplateSelectionResponse> {
   try {
     const { userId } = auth()
     if (!userId) {
-      return { success: false, error: 'Unauthorized' }
+      return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }
     }
 
     const validated = templateSelectionSchema.parse(selection)
@@ -564,9 +578,9 @@ export async function addTemplateSelection(sessionId: string, selection: z.infer
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message }
+      return { success: false, error: error.errors[0].message, code: 'VALIDATION_ERROR' }
     }
-    return { success: false, error: 'Failed to add template selection' }
+    return { success: false, error: 'Failed to add template selection', code: 'INTERNAL_ERROR' }
   }
 }
 
@@ -574,11 +588,11 @@ export async function addTemplateSelection(sessionId: string, selection: z.infer
 // Note Actions
 // ============================================================================
 
-export async function addNote(sessionId: string, note: z.infer<typeof noteSchema>) {
+export async function addNote(sessionId: string, note: z.infer<typeof noteSchema>): Promise<AddNoteResponse> {
   try {
     const { userId } = auth()
     if (!userId) {
-      return { success: false, error: 'Unauthorized' }
+      return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }
     }
 
     const validated = noteSchema.parse(note)
@@ -603,9 +617,9 @@ export async function addNote(sessionId: string, note: z.infer<typeof noteSchema
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message }
+      return { success: false, error: error.errors[0].message, code: 'VALIDATION_ERROR' }
     }
-    return { success: false, error: 'Failed to add note' }
+    return { success: false, error: 'Failed to add note', code: 'INTERNAL_ERROR' }
   }
 }
 
@@ -613,17 +627,17 @@ export async function addNote(sessionId: string, note: z.infer<typeof noteSchema
 // Query Actions
 // ============================================================================
 
-export async function getSessionStatus(sessionId: string) {
+export async function getSessionStatus(sessionId: string): Promise<SessionStatusResponse> {
   try {
     const { userId } = auth()
     if (!userId) {
-      return { success: false, error: 'Unauthorized' }
+      return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }
     }
 
     // Get session
     const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId))
     if (!session) {
-      return { success: false, error: 'Session not found' }
+      return { success: false, error: 'Session not found', code: 'NOT_FOUND' }
     }
 
     // Get steps
@@ -656,21 +670,21 @@ export async function getSessionStatus(sessionId: string) {
       },
     }
   } catch (error) {
-    return { success: false, error: 'Failed to get session status' }
+    return { success: false, error: 'Failed to get session status', code: 'INTERNAL_ERROR' }
   }
 }
 
-export async function getTimeRemaining(sessionId: string) {
+export async function getTimeRemaining(sessionId: string): Promise<TimeRemainingResponse> {
   try {
     const { userId } = auth()
     if (!userId) {
-      return { success: false, error: 'Unauthorized' }
+      return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }
     }
 
     // Get session
     const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId))
     if (!session) {
-      return { success: false, error: 'Session not found' }
+      return { success: false, error: 'Session not found', code: 'NOT_FOUND' }
     }
 
     const now = new Date()
@@ -708,6 +722,6 @@ export async function getTimeRemaining(sessionId: string) {
       },
     }
   } catch (error) {
-    return { success: false, error: 'Failed to get time remaining' }
+    return { success: false, error: 'Failed to get time remaining', code: 'INTERNAL_ERROR' }
   }
 }

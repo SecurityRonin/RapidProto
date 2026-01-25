@@ -1,71 +1,71 @@
 /**
  * Session Dashboard Component
  * Main orchestrator for Builder and Facilitator sessions
+ *
+ * Refactored to use:
+ * - SessionProvider for centralized state
+ * - useAction hook for action execution
+ * - parseStringArray for safe JSON parsing
  */
 
 'use client'
 
-import { useState, useEffect } from 'react'
 import { Pause, Play, SkipForward, CheckCircle, Menu, X } from 'lucide-react'
 import {
-  getSessionStatus,
   pauseSession,
   resumeSession,
   advancePhase,
   completeSession,
 } from '@/lib/actions'
+import { SessionProvider, useSession, useSessionTimer, useClientInfo, useCurrentPhase } from '@/hooks/use-session'
+import { useAction } from '@/hooks/use-action'
+import { parseStringArray } from '@/lib/utils/json-fields'
 import { SessionTimer } from './session-timer'
 import { StepChecklist } from './step-checklist'
 import { cn } from '@/lib/utils'
+import { useState } from 'react'
 
 interface SessionDashboardProps {
   sessionId: string
 }
 
-export function SessionDashboard({ sessionId }: SessionDashboardProps) {
-  const [session, setSession] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+/**
+ * Main dashboard content - consumes SessionContext
+ */
+function SessionDashboardContent({ sessionId }: { sessionId: string }) {
+  const { session, loading, error, refresh } = useSession()
+  const timeRemaining = useSessionTimer()
+  const clientInfo = useClientInfo()
+  const currentPhase = useCurrentPhase()
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
-  // Fetch session status
-  const fetchSessionStatus = async () => {
-    const result = await getSessionStatus(sessionId)
-    if (result.success) {
-      setSession(result.data)
-    }
-    setLoading(false)
-  }
+  // Action hooks with automatic refresh on success
+  const pauseAction = useAction(
+    () => pauseSession(sessionId),
+    { onSuccess: () => refresh() }
+  )
 
-  // Initial load
-  useEffect(() => {
-    fetchSessionStatus()
-  }, [sessionId])
+  const resumeAction = useAction(
+    () => resumeSession(sessionId),
+    { onSuccess: () => refresh() }
+  )
 
-  // Auto-refresh every 5 seconds
-  useEffect(() => {
-    const interval = setInterval(fetchSessionStatus, 5000)
-    return () => clearInterval(interval)
-  }, [sessionId])
+  const advanceAction = useAction(
+    () => advancePhase(sessionId),
+    { onSuccess: () => refresh() }
+  )
 
-  const handlePause = async () => {
-    await pauseSession(sessionId)
-    fetchSessionStatus()
-  }
+  const completeAction = useAction(
+    () => completeSession(sessionId),
+    { onSuccess: () => refresh() }
+  )
 
-  const handleResume = async () => {
-    await resumeSession(sessionId)
-    fetchSessionStatus()
-  }
-
-  const handleAdvancePhase = async () => {
-    await advancePhase(sessionId)
-    fetchSessionStatus()
-  }
-
-  const handleComplete = async () => {
-    await completeSession(sessionId)
-    fetchSessionStatus()
-  }
+  // Check if any action is in progress
+  const isActionPending =
+    pauseAction.isPending ||
+    resumeAction.isPending ||
+    advanceAction.isPending ||
+    completeAction.isPending
 
   if (loading) {
     return (
@@ -75,10 +75,10 @@ export function SessionDashboard({ sessionId }: SessionDashboardProps) {
     )
   }
 
-  if (!session) {
+  if (error || !session) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg text-red-600">Session not found</div>
+        <div className="text-lg text-red-600">{error || 'Session not found'}</div>
       </div>
     )
   }
@@ -86,7 +86,14 @@ export function SessionDashboard({ sessionId }: SessionDashboardProps) {
   const isActive = session.session.status === 'active'
   const isPaused = session.session.status === 'paused'
   const isCompleted = session.session.status === 'completed'
-  const currentPhase = session.session.currentPhase
+  const phase = currentPhase ?? 'discovery'
+
+  // Parse threeWins safely - handles both raw JSON strings and pre-parsed arrays
+  const threeWins: string[] = clientInfo?.threeWins
+    ? (typeof clientInfo.threeWins === 'string'
+        ? parseStringArray(clientInfo.threeWins)
+        : clientInfo.threeWins)
+    : []
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -122,16 +129,16 @@ export function SessionDashboard({ sessionId }: SessionDashboardProps) {
 
           {/* Phase Progress */}
           <div data-testid="phase-container" className="space-y-2 vertical-layout lg:horizontal-layout">
-            {['discovery', 'build', 'demo'].map((phase, index) => {
-              const isCurrentPhase = currentPhase === phase
+            {(['discovery', 'build', 'demo'] as const).map((p, index) => {
+              const isCurrentPhase = phase === p
               const isCompletedPhase =
-                (phase === 'discovery' && ['build', 'demo'].includes(currentPhase)) ||
-                (phase === 'build' && currentPhase === 'demo')
+                (p === 'discovery' && ['build', 'demo'].includes(phase)) ||
+                (p === 'build' && phase === 'demo')
 
               return (
                 <div
-                  key={phase}
-                  data-testid={`phase-${phase}`}
+                  key={p}
+                  data-testid={`phase-${p}`}
                   className={cn(
                     'p-3 rounded-lg border transition-colors',
                     isCurrentPhase && 'active bg-blue-50 border-blue-500',
@@ -153,13 +160,13 @@ export function SessionDashboard({ sessionId }: SessionDashboardProps) {
                       isCurrentPhase && 'text-blue-900',
                       !isCurrentPhase && 'text-gray-700'
                     )}>
-                      {phase}
+                      {p}
                     </span>
                   </div>
                   <div className="mt-1 ml-8 text-sm text-gray-600">
-                    {phase === 'discovery' && `${session.session.discoveryDuration} min`}
-                    {phase === 'build' && `${session.session.buildDuration} min`}
-                    {phase === 'demo' && `${session.session.demoDuration} min`}
+                    {p === 'discovery' && `${session.session.discoveryDuration} min`}
+                    {p === 'build' && `${session.session.buildDuration} min`}
+                    {p === 'demo' && `${session.session.demoDuration} min`}
                   </div>
                 </div>
               )
@@ -167,18 +174,18 @@ export function SessionDashboard({ sessionId }: SessionDashboardProps) {
           </div>
 
           {/* Client Info */}
-          {session.clientInfo && (
+          {clientInfo && (
             <div className="bg-blue-50 rounded-lg p-4">
               <h3 className="font-semibold text-gray-900 mb-2">Client</h3>
-              <p className="text-gray-700">{session.clientInfo.clientName}</p>
-              {session.clientInfo.businessType && (
-                <p className="text-sm text-gray-600 mt-1">{session.clientInfo.businessType}</p>
+              <p className="text-gray-700">{clientInfo.clientName}</p>
+              {clientInfo.businessType && (
+                <p className="text-sm text-gray-600 mt-1">{clientInfo.businessType}</p>
               )}
 
-              {session.clientInfo.threeWins && (
+              {threeWins.length > 0 && (
                 <div data-testid="three-wins" className="mt-3 space-y-1">
                   <p className="text-xs font-medium text-gray-700">Three Wins:</p>
-                  {JSON.parse(session.clientInfo.threeWins).map((win: string, i: number) => (
+                  {threeWins.map((win: string, i: number) => (
                     <p key={i} className="text-xs text-gray-600">• {win}</p>
                   ))}
                 </div>
@@ -220,13 +227,13 @@ export function SessionDashboard({ sessionId }: SessionDashboardProps) {
 
               {/* Timer */}
               <div className="flex-1 min-w-[200px]">
-                {session.timeRemaining && (
+                {timeRemaining && (
                   <SessionTimer
-                    remainingMinutes={session.timeRemaining.remainingMinutes}
-                    totalMinutes={session.timeRemaining.totalMinutes}
-                    phase={currentPhase}
-                    isOvertime={session.timeRemaining.isOvertime}
-                    overtimeMinutes={session.timeRemaining.overtimeMinutes}
+                    remainingMinutes={timeRemaining.remainingMinutes}
+                    totalMinutes={timeRemaining.totalMinutes}
+                    phase={phase}
+                    isOvertime={timeRemaining.isOvertime}
+                    overtimeMinutes={timeRemaining.overtimeMinutes}
                     isPaused={isPaused}
                   />
                 )}
@@ -236,56 +243,67 @@ export function SessionDashboard({ sessionId }: SessionDashboardProps) {
               <div className="flex items-center gap-2">
                 {isActive && (
                   <button
-                    onClick={handlePause}
-                    className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 font-medium"
+                    onClick={() => pauseAction.execute()}
+                    disabled={isActionPending}
+                    className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 font-medium disabled:opacity-50"
                   >
                     <Pause className="w-4 h-4" />
-                    Pause
+                    {pauseAction.isPending ? 'Pausing...' : 'Pause'}
                   </button>
                 )}
 
                 {isPaused && (
                   <button
-                    onClick={handleResume}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+                    onClick={() => resumeAction.execute()}
+                    disabled={isActionPending}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50"
                   >
                     <Play className="w-4 h-4" />
-                    Resume
+                    {resumeAction.isPending ? 'Resuming...' : 'Resume'}
                   </button>
                 )}
 
-                {isActive && currentPhase !== 'demo' && (
+                {isActive && phase !== 'demo' && (
                   <button
-                    onClick={handleAdvancePhase}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                    onClick={() => advanceAction.execute()}
+                    disabled={isActionPending}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
                   >
                     <SkipForward className="w-4 h-4" />
-                    {currentPhase === 'discovery' ? 'Start Build' : 'Start Demo'}
+                    {advanceAction.isPending ? 'Advancing...' : phase === 'discovery' ? 'Start Build' : 'Start Demo'}
                   </button>
                 )}
 
-                {isActive && currentPhase === 'demo' && (
+                {isActive && phase === 'demo' && (
                   <button
-                    onClick={handleComplete}
-                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
+                    onClick={() => completeAction.execute()}
+                    disabled={isActionPending}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium disabled:opacity-50"
                   >
                     <CheckCircle className="w-4 h-4" />
-                    Complete Session
+                    {completeAction.isPending ? 'Completing...' : 'Complete Session'}
                   </button>
                 )}
               </div>
             </div>
+
+            {/* Error Display */}
+            {(pauseAction.error || resumeAction.error || advanceAction.error || completeAction.error) && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+                {pauseAction.error || resumeAction.error || advanceAction.error || completeAction.error}
+              </div>
+            )}
           </div>
 
           {/* Step Checklist */}
           <div className="bg-white rounded-lg border p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">
-              {currentPhase.charAt(0).toUpperCase() + currentPhase.slice(1)} Phase Steps
+              {phase.charAt(0).toUpperCase() + phase.slice(1)} Phase Steps
             </h2>
             {session.session.steps && (
               <StepChecklist
                 steps={session.session.steps}
-                currentPhase={currentPhase}
+                currentPhase={phase}
               />
             )}
           </div>
@@ -302,7 +320,7 @@ export function SessionDashboard({ sessionId }: SessionDashboardProps) {
             <div className="bg-white rounded-lg border p-4">
               <div className="text-sm text-gray-600">Current Phase</div>
               <div className="text-2xl font-bold text-gray-900 mt-1 capitalize">
-                {currentPhase}
+                {phase}
               </div>
             </div>
 
@@ -316,5 +334,16 @@ export function SessionDashboard({ sessionId }: SessionDashboardProps) {
         </div>
       </main>
     </div>
+  )
+}
+
+/**
+ * SessionDashboard - wraps content with SessionProvider
+ */
+export function SessionDashboard({ sessionId }: SessionDashboardProps) {
+  return (
+    <SessionProvider sessionId={sessionId}>
+      <SessionDashboardContent sessionId={sessionId} />
+    </SessionProvider>
   )
 }
