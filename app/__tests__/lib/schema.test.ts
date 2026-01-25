@@ -10,7 +10,7 @@ import {
   clientInfo,
   templateSelections,
   sessionNotes,
-} from './schema'
+} from '@/lib/db/schema'
 
 describe('Session Assistant Schema', () => {
   describe('Sessions Table', () => {

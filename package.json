@@ -4,9 +4,10 @@
   "description": "RapidProto - From discovery to demo in 50 minutes",
   "type": "module",
   "scripts": {
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test": "vitest run lib/builder.test.ts lib/facilitator.test.ts",
+    "test:watch": "vitest lib/builder.test.ts lib/facilitator.test.ts",
+    "test:coverage": "vitest run --coverage lib/builder.test.ts lib/facilitator.test.ts",
+    "test:template": "echo 'cd into template directory and run: npm test'"
   },
   "keywords": [
     "rapid-prototyping",

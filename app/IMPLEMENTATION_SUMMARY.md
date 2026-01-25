@@ -253,7 +253,7 @@ The Session Assistant meta-app guides both Builders and Facilitators through the
 ## File Structure
 
 ```
-template-0-session-assistant/
+app/
 ├── lib/
 │   ├── db/
 │   │   ├── schema.ts (167 lines) ✅
