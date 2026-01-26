@@ -1,32 +1,35 @@
 /**
  * Session Dashboard Component
- * Main orchestrator for Builder and Facilitator sessions
- *
- * Refactored to use:
- * - SessionProvider for centralized state
- * - useAction hook for action execution
- * - parseStringArray for safe JSON parsing
+ * Minimal & Sophisticated design - focused single-column layout
  */
 
 'use client'
 
-import { Pause, Play, SkipForward, CheckCircle, Menu, X } from 'lucide-react'
+import { Pause, Play, ArrowRight, CheckCircle, ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
 import {
   pauseSession,
   resumeSession,
   advancePhase,
   completeSession,
 } from '@/lib/actions'
-import { SessionProvider, useSession, useSessionTimer, useClientInfo, useCurrentPhase } from '@/hooks/use-session'
+import { SessionProvider, useSession, useSessionTimer, useCurrentPhase } from '@/hooks/use-session'
 import { useAction } from '@/hooks/use-action'
-import { parseStringArray } from '@/lib/utils/json-fields'
-import { SessionTimer } from './session-timer'
 import { StepChecklist } from './step-checklist'
 import { cn } from '@/lib/utils'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface SessionDashboardProps {
   sessionId: string
+}
+
+/**
+ * Format minutes to MM:SS display
+ */
+function formatTime(minutes: number): string {
+  const mins = Math.floor(minutes)
+  const secs = Math.floor((minutes - mins) * 60)
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
 /**
@@ -35,9 +38,12 @@ interface SessionDashboardProps {
 function SessionDashboardContent({ sessionId }: { sessionId: string }) {
   const { session, loading, error, refresh } = useSession()
   const timeRemaining = useSessionTimer()
-  const clientInfo = useClientInfo()
   const currentPhase = useCurrentPhase()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Action hooks with automatic refresh on success
   const pauseAction = useAction(
@@ -60,25 +66,27 @@ function SessionDashboardContent({ sessionId }: { sessionId: string }) {
     { onSuccess: () => refresh() }
   )
 
-  // Check if any action is in progress
   const isActionPending =
     pauseAction.isPending ||
     resumeAction.isPending ||
     advanceAction.isPending ||
     completeAction.isPending
 
-  if (loading) {
+  if (loading || !mounted) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg text-gray-600">Loading session...</div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
       </div>
     )
   }
 
   if (error || !session) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg text-red-600">{error || 'Session not found'}</div>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+        <p className="text-gray-500">{error || 'Session not found'}</p>
+        <Link href="/session/new" className="text-gray-900 underline hover:no-underline">
+          Start a new session
+        </Link>
       </div>
     )
   }
@@ -88,217 +96,172 @@ function SessionDashboardContent({ sessionId }: { sessionId: string }) {
   const isCompleted = session.session.status === 'completed'
   const phase = currentPhase ?? 'discovery'
 
-  // Parse threeWins safely - handles both raw JSON strings and pre-parsed arrays
-  const threeWins: string[] = clientInfo?.threeWins
-    ? (typeof clientInfo.threeWins === 'string'
-        ? parseStringArray(clientInfo.threeWins)
-        : clientInfo.threeWins)
-    : []
+  const progressPercentage = timeRemaining
+    ? ((timeRemaining.totalMinutes - timeRemaining.remainingMinutes) / timeRemaining.totalMinutes) * 100
+    : 0
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <aside
-        data-testid="sidebar"
-        className={cn(
-          'fixed lg:relative inset-y-0 left-0 z-40 w-80 bg-white border-r transform transition-transform duration-200 ease-in-out',
-          sidebarOpen ? 'translate-x-0 open' : '-translate-x-full closed lg:translate-x-0',
-          'mobile-collapsed lg:block'
-        )}
-      >
-        <div className="h-full overflow-y-auto p-6 space-y-6">
-          {/* Session Header */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-bold text-gray-900">
-                {session.session.role === 'builder' ? 'Builder' : 'Facilitator'} Session
-              </h2>
-              <span className={cn(
-                'px-2 py-1 text-xs font-medium rounded',
-                isActive && 'bg-green-100 text-green-800',
-                isPaused && 'bg-yellow-100 text-yellow-800',
-                isCompleted && 'bg-gray-100 text-gray-800'
-              )}>
-                {session.session.status}
+    <div className="min-h-screen bg-white">
+      {/* Header */}
+      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-gray-100">
+        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 text-gray-400 hover:text-gray-900 transition-colors">
+            <ArrowLeft className="w-4 h-4" />
+            <span className="text-sm font-medium">RapidProto</span>
+          </Link>
+
+          <div className="flex items-center gap-3">
+            {session.session.sessionTitle && (
+              <span className="text-sm text-gray-600 hidden sm:block">
+                {session.session.sessionTitle}
+              </span>
+            )}
+            <span className={cn(
+              'px-3 py-1 text-xs font-medium rounded-full',
+              isActive && 'bg-gray-900 text-white',
+              isPaused && 'bg-gray-200 text-gray-600',
+              isCompleted && 'bg-gray-100 text-gray-500'
+            )}>
+              {session.session.status}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-2xl mx-auto px-6 py-12">
+        <div className="space-y-12">
+          {/* Timer Section */}
+          <div className="text-center space-y-6">
+            {/* Phase Label */}
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-xs font-semibold tracking-widest text-gray-400 uppercase">
+                {phase}
+              </span>
+              <span className="text-xs text-gray-300">
+                {session.session.role === 'builder' ? 'Builder' : 'Facilitator'}
               </span>
             </div>
-            {session.session.sessionTitle && (
-              <p className="text-sm text-gray-600">{session.session.sessionTitle}</p>
-            )}
-          </div>
 
-          {/* Phase Progress */}
-          <div data-testid="phase-container" className="space-y-2 vertical-layout lg:horizontal-layout">
-            {(['discovery', 'build', 'demo'] as const).map((p, index) => {
-              const isCurrentPhase = phase === p
-              const isCompletedPhase =
-                (p === 'discovery' && ['build', 'demo'].includes(phase)) ||
-                (p === 'build' && phase === 'demo')
+            {/* Timer Display */}
+            <div className={cn(
+              'text-7xl md:text-8xl font-light tracking-tight tabular-nums',
+              timeRemaining?.isOvertime && 'text-red-500',
+              isPaused && 'opacity-50'
+            )}>
+              {timeRemaining ? (
+                timeRemaining.isOvertime ? (
+                  <span>+{formatTime(timeRemaining.overtimeMinutes)}</span>
+                ) : (
+                  formatTime(timeRemaining.remainingMinutes)
+                )
+              ) : (
+                '--:--'
+              )}
+            </div>
 
-              return (
+            {/* Progress Bar */}
+            <div className="w-full max-w-xs mx-auto">
+              <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
                 <div
-                  key={p}
-                  data-testid={`phase-${p}`}
                   className={cn(
-                    'p-3 rounded-lg border transition-colors',
-                    isCurrentPhase && 'active bg-blue-50 border-blue-500',
-                    isCompletedPhase && 'completed bg-green-50 border-green-500',
-                    !isCurrentPhase && !isCompletedPhase && 'bg-gray-50 border-gray-200'
+                    'h-full transition-all duration-1000',
+                    timeRemaining?.isOvertime ? 'bg-red-500' : 'bg-gray-900'
                   )}
-                >
-                  <div className="flex items-center gap-2">
+                  style={{ width: `${Math.min(progressPercentage, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Phase Steps Progress */}
+            <div className="flex items-center justify-center gap-6 text-sm">
+              {(['discovery', 'build', 'demo'] as const).map((p, index) => {
+                const isCurrentPhase = phase === p
+                const isCompletedPhase =
+                  (p === 'discovery' && ['build', 'demo'].includes(phase)) ||
+                  (p === 'build' && phase === 'demo')
+
+                return (
+                  <div key={p} className="flex items-center gap-2">
+                    {index > 0 && <div className="w-4 h-px bg-gray-200" />}
                     <div className={cn(
-                      'w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold',
-                      isCompletedPhase && 'bg-green-600 text-white',
-                      isCurrentPhase && 'bg-blue-600 text-white',
-                      !isCurrentPhase && !isCompletedPhase && 'bg-gray-300 text-gray-600'
-                    )}>
-                      {isCompletedPhase ? '✓' : index + 1}
-                    </div>
+                      'w-2 h-2 rounded-full',
+                      isCompletedPhase && 'bg-gray-900',
+                      isCurrentPhase && 'bg-gray-900 ring-4 ring-gray-200',
+                      !isCurrentPhase && !isCompletedPhase && 'bg-gray-200'
+                    )} />
                     <span className={cn(
-                      'font-medium capitalize',
-                      isCurrentPhase && 'text-blue-900',
-                      !isCurrentPhase && 'text-gray-700'
+                      'capitalize',
+                      isCurrentPhase ? 'text-gray-900 font-medium' : 'text-gray-400'
                     )}>
                       {p}
                     </span>
                   </div>
-                  <div className="mt-1 ml-8 text-sm text-gray-600">
-                    {p === 'discovery' && `${session.session.discoveryDuration} min`}
-                    {p === 'build' && `${session.session.buildDuration} min`}
-                    {p === 'demo' && `${session.session.demoDuration} min`}
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
 
-          {/* Client Info */}
-          {clientInfo && (
-            <div className="bg-blue-50 rounded-lg p-4">
-              <h3 className="font-semibold text-gray-900 mb-2">Client</h3>
-              <p className="text-gray-700">{clientInfo.clientName}</p>
-              {clientInfo.businessType && (
-                <p className="text-sm text-gray-600 mt-1">{clientInfo.businessType}</p>
+          {/* Control Buttons */}
+          {!isCompleted && (
+            <div className="flex items-center justify-center gap-3">
+              {isActive && (
+                <button
+                  onClick={() => pauseAction.execute()}
+                  disabled={isActionPending}
+                  className="flex items-center gap-2 px-6 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-full hover:bg-gray-50 disabled:opacity-50 transition-all"
+                >
+                  <Pause className="w-4 h-4" />
+                  {pauseAction.isPending ? 'Pausing...' : 'Pause'}
+                </button>
               )}
 
-              {threeWins.length > 0 && (
-                <div data-testid="three-wins" className="mt-3 space-y-1">
-                  <p className="text-xs font-medium text-gray-700">Three Wins:</p>
-                  {threeWins.map((win: string, i: number) => (
-                    <p key={i} className="text-xs text-gray-600">• {win}</p>
-                  ))}
-                </div>
+              {isPaused && (
+                <button
+                  onClick={() => resumeAction.execute()}
+                  disabled={isActionPending}
+                  className="flex items-center gap-2 px-6 py-3 text-sm font-medium text-white bg-black rounded-full hover:bg-gray-800 disabled:opacity-50 transition-all"
+                >
+                  <Play className="w-4 h-4" />
+                  {resumeAction.isPending ? 'Resuming...' : 'Resume'}
+                </button>
+              )}
+
+              {isActive && phase !== 'demo' && (
+                <button
+                  onClick={() => advanceAction.execute()}
+                  disabled={isActionPending}
+                  className="flex items-center gap-2 px-6 py-3 text-sm font-medium text-white bg-black rounded-full hover:bg-gray-800 disabled:opacity-50 transition-all"
+                >
+                  {advanceAction.isPending ? 'Advancing...' : phase === 'discovery' ? 'Start Build' : 'Start Demo'}
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
+
+              {isActive && phase === 'demo' && (
+                <button
+                  onClick={() => completeAction.execute()}
+                  disabled={isActionPending}
+                  className="flex items-center gap-2 px-6 py-3 text-sm font-medium text-white bg-black rounded-full hover:bg-gray-800 disabled:opacity-50 transition-all"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  {completeAction.isPending ? 'Completing...' : 'Complete'}
+                </button>
               )}
             </div>
           )}
 
-          {/* Selected Template */}
-          {session.selectedTemplate && (
-            <div className="bg-green-50 rounded-lg p-4">
-              <h3 className="font-semibold text-gray-900 mb-2">Template</h3>
-              <p className="text-gray-700">
-                #{session.selectedTemplate.templateNumber} {session.selectedTemplate.templateName}
-              </p>
-              {session.selectedTemplate.customizationNotes && (
-                <div data-testid="customization-notes" className="mt-2 text-sm text-gray-600">
-                  {session.selectedTemplate.customizationNotes}
-                </div>
-              )}
+          {/* Error Display */}
+          {(pauseAction.error || resumeAction.error || advanceAction.error || completeAction.error) && (
+            <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm text-center">
+              {pauseAction.error || resumeAction.error || advanceAction.error || completeAction.error}
             </div>
           )}
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-6 lg:p-8 space-y-6">
-          {/* Header with Controls */}
-          <div className="bg-white rounded-lg border p-6">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              {/* Mobile Sidebar Toggle */}
-              <button
-                data-testid="sidebar-toggle"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden p-2 hover:bg-gray-100 rounded"
-              >
-                {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-              </button>
-
-              {/* Timer */}
-              <div className="flex-1 min-w-[200px]">
-                {timeRemaining && (
-                  <SessionTimer
-                    remainingMinutes={timeRemaining.remainingMinutes}
-                    totalMinutes={timeRemaining.totalMinutes}
-                    phase={phase}
-                    isOvertime={timeRemaining.isOvertime}
-                    overtimeMinutes={timeRemaining.overtimeMinutes}
-                    isPaused={isPaused}
-                  />
-                )}
-              </div>
-
-              {/* Session Controls */}
-              <div className="flex items-center gap-2">
-                {isActive && (
-                  <button
-                    onClick={() => pauseAction.execute()}
-                    disabled={isActionPending}
-                    className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 font-medium disabled:opacity-50"
-                  >
-                    <Pause className="w-4 h-4" />
-                    {pauseAction.isPending ? 'Pausing...' : 'Pause'}
-                  </button>
-                )}
-
-                {isPaused && (
-                  <button
-                    onClick={() => resumeAction.execute()}
-                    disabled={isActionPending}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:opacity-50"
-                  >
-                    <Play className="w-4 h-4" />
-                    {resumeAction.isPending ? 'Resuming...' : 'Resume'}
-                  </button>
-                )}
-
-                {isActive && phase !== 'demo' && (
-                  <button
-                    onClick={() => advanceAction.execute()}
-                    disabled={isActionPending}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
-                  >
-                    <SkipForward className="w-4 h-4" />
-                    {advanceAction.isPending ? 'Advancing...' : phase === 'discovery' ? 'Start Build' : 'Start Demo'}
-                  </button>
-                )}
-
-                {isActive && phase === 'demo' && (
-                  <button
-                    onClick={() => completeAction.execute()}
-                    disabled={isActionPending}
-                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium disabled:opacity-50"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    {completeAction.isPending ? 'Completing...' : 'Complete Session'}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Error Display */}
-            {(pauseAction.error || resumeAction.error || advanceAction.error || completeAction.error) && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-                {pauseAction.error || resumeAction.error || advanceAction.error || completeAction.error}
-              </div>
-            )}
-          </div>
 
           {/* Step Checklist */}
-          <div className="bg-white rounded-lg border p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
-              {phase.charAt(0).toUpperCase() + phase.slice(1)} Phase Steps
+          <div className="space-y-4">
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-widest">
+              {phase} Steps
             </h2>
             {session.session.steps && (
               <StepChecklist
@@ -309,26 +272,24 @@ function SessionDashboardContent({ sessionId }: { sessionId: string }) {
           </div>
 
           {/* Progress Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg border p-4">
-              <div className="text-sm text-gray-600">Steps Completed</div>
-              <div className="text-2xl font-bold text-gray-900 mt-1">
-                {session.stepsCompleted} / {session.stepsTotal}
+          <div className="grid grid-cols-3 gap-6 pt-6 border-t border-gray-100">
+            <div className="text-center">
+              <div className="text-2xl font-semibold text-gray-900">
+                {session.stepsCompleted}/{session.stepsTotal}
               </div>
+              <div className="text-xs text-gray-400 mt-1">Steps</div>
             </div>
-
-            <div className="bg-white rounded-lg border p-4">
-              <div className="text-sm text-gray-600">Current Phase</div>
-              <div className="text-2xl font-bold text-gray-900 mt-1 capitalize">
+            <div className="text-center">
+              <div className="text-2xl font-semibold text-gray-900 capitalize">
                 {phase}
               </div>
+              <div className="text-xs text-gray-400 mt-1">Phase</div>
             </div>
-
-            <div className="bg-white rounded-lg border p-4">
-              <div className="text-sm text-gray-600">Status</div>
-              <div className="text-2xl font-bold text-gray-900 mt-1 capitalize">
-                {session.session.status}
+            <div className="text-center">
+              <div className="text-2xl font-semibold text-gray-900">
+                {timeRemaining ? Math.round(timeRemaining.elapsedMinutes) : 0}m
               </div>
+              <div className="text-xs text-gray-400 mt-1">Elapsed</div>
             </div>
           </div>
         </div>

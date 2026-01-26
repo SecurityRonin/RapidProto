@@ -23,7 +23,7 @@ export default defineWorkspace([
     test: {
       name: 'components',
       environment: 'jsdom',
-      include: ['__tests__/components/**/*.test.tsx', '__tests__/hooks/**/*.test.tsx'],
+      include: ['__tests__/components/**/*.test.tsx', '__tests__/hooks/**/*.test.tsx', '__tests__/pages/**/*.test.tsx'],
       exclude: ['node_modules/**'],
       globals: true,
       setupFiles: ['./test/setup-dom.ts'],

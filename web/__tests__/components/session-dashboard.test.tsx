@@ -1,16 +1,12 @@
 /**
  * TDD: Session Dashboard Component Tests
- * Tests component behavior with mocked server actions (Option 3)
- *
- * Strategy: Test what the user sees and can interact with,
- * not internal implementation details.
+ * Minimal & Sophisticated design
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { SessionDashboard } from '../../components/session/session-dashboard'
 
-// Mock server actions with meaningful defaults
 vi.mock('@/lib/actions', () => ({
   getSessionStatus: vi.fn(() => Promise.resolve({
     success: true,
@@ -26,6 +22,7 @@ vi.mock('@/lib/actions', () => ({
         demoDuration: 10,
         startedAt: new Date(Date.now() - 5 * 60 * 1000),
         totalPausedTime: 0,
+        sessionTitle: 'Test Session',
         steps: [
           { id: 'step_1', stepNumber: 1, title: 'Review client requirements', status: 'completed', phase: 'discovery', estimatedMinutes: 3 },
           { id: 'step_2', stepNumber: 2, title: 'Select template', status: 'in_progress', phase: 'discovery', estimatedMinutes: 4 },
@@ -42,16 +39,8 @@ vi.mock('@/lib/actions', () => ({
       },
       stepsCompleted: 1,
       stepsTotal: 2,
-      clientInfo: {
-        id: 'client_1',
-        clientName: 'Acme Corp',
-        threeWins: JSON.stringify(['Better reporting', 'Faster processing', 'Easier maintenance']),
-      },
-      selectedTemplate: {
-        templateNumber: 14,
-        templateName: 'Inventory Management',
-        customizationNotes: 'Need additional barcode scanning feature',
-      },
+      clientInfo: null,
+      selectedTemplate: null,
     },
   })),
   pauseSession: vi.fn(() => Promise.resolve({ success: true, data: { status: 'paused' } })),
@@ -75,12 +64,11 @@ describe('SessionDashboard', () => {
       render(<SessionDashboard sessionId="session_123" />)
 
       await waitFor(() => {
-        // "discovery" appears in phase list and current phase indicator
         expect(screen.getAllByText(/discovery/i).length).toBeGreaterThan(0)
       })
     })
 
-    it('should show role badge', async () => {
+    it('should show role indicator', async () => {
       render(<SessionDashboard sessionId="session_123" />)
 
       await waitFor(() => {
@@ -88,12 +76,40 @@ describe('SessionDashboard', () => {
       })
     })
 
-    it('should display session status', async () => {
+    it('should display session status badge', async () => {
       render(<SessionDashboard sessionId="session_123" />)
 
       await waitFor(() => {
-        // Status appears in badge and summary
         expect(screen.getAllByText(/active/i).length).toBeGreaterThan(0)
+      })
+    })
+
+    it('should show session title in header', async () => {
+      render(<SessionDashboard sessionId="session_123" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Session')).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('Timer Display', () => {
+    it('should show time remaining', async () => {
+      render(<SessionDashboard sessionId="session_123" />)
+
+      await waitFor(() => {
+        // Time displays as MM:SS format
+        expect(screen.getByText(/05:00|5:00|05:|:00/)).toBeInTheDocument()
+      })
+    })
+
+    it('should show progress bar', async () => {
+      render(<SessionDashboard sessionId="session_123" />)
+
+      await waitFor(() => {
+        // Progress bar element exists
+        const progressContainer = document.querySelector('.bg-gray-100.rounded-full')
+        expect(progressContainer).toBeInTheDocument()
       })
     })
   })
@@ -103,19 +119,9 @@ describe('SessionDashboard', () => {
       render(<SessionDashboard sessionId="session_123" />)
 
       await waitFor(() => {
-        // Each phase name appears at least once in the phase list
         expect(screen.getAllByText(/discovery/i).length).toBeGreaterThan(0)
         expect(screen.getAllByText(/build/i).length).toBeGreaterThan(0)
         expect(screen.getAllByText(/demo/i).length).toBeGreaterThan(0)
-      })
-    })
-
-    it('should highlight current phase', async () => {
-      render(<SessionDashboard sessionId="session_123" />)
-
-      await waitFor(() => {
-        const currentPhase = screen.getByTestId('phase-discovery')
-        expect(currentPhase).toHaveClass('active')
       })
     })
   })
@@ -164,87 +170,56 @@ describe('SessionDashboard', () => {
     })
   })
 
-  describe('Collapsible Sidebar', () => {
-    it('should have collapsible sidebar', async () => {
+  describe('Step Checklist Integration', () => {
+    it('should display steps for current phase', async () => {
       render(<SessionDashboard sessionId="session_123" />)
 
       await waitFor(() => {
-        expect(screen.getByTestId('sidebar-toggle')).toBeInTheDocument()
-        expect(screen.getByTestId('sidebar')).toBeInTheDocument()
-      })
-    })
-
-    it('should toggle sidebar visibility', async () => {
-      render(<SessionDashboard sessionId="session_123" />)
-
-      const toggle = await screen.findByTestId('sidebar-toggle')
-      const sidebar = await screen.findByTestId('sidebar')
-
-      // Initially open
-      expect(sidebar).toHaveClass('open')
-
-      // Click to close
-      fireEvent.click(toggle)
-
-      await waitFor(() => {
-        expect(sidebar).toHaveClass('closed')
-      })
-    })
-  })
-
-  describe('Client Info Display', () => {
-    it('should show client name when available', async () => {
-      render(<SessionDashboard sessionId="session_123" />)
-
-      await waitFor(() => {
-        expect(screen.getByText(/acme corp/i)).toBeInTheDocument()
-      })
-    })
-
-    it('should display Three Wins if captured', async () => {
-      render(<SessionDashboard sessionId="session_123" />)
-
-      await waitFor(() => {
-        expect(screen.getByTestId('three-wins')).toBeInTheDocument()
-        expect(screen.getByText(/better reporting/i)).toBeInTheDocument()
-      })
-    })
-  })
-
-  describe('Template Selection Display', () => {
-    it('should show selected template', async () => {
-      render(<SessionDashboard sessionId="session_123" />)
-
-      await waitFor(() => {
-        expect(screen.getByText(/#14.*Inventory Management/)).toBeInTheDocument()
-      })
-    })
-
-    it('should display customization notes', async () => {
-      render(<SessionDashboard sessionId="session_123" />)
-
-      await waitFor(() => {
-        expect(screen.getByTestId('customization-notes')).toBeInTheDocument()
-        expect(screen.getByText(/barcode scanning/i)).toBeInTheDocument()
+        expect(screen.getByText('Review client requirements')).toBeInTheDocument()
+        expect(screen.getByText('Select template')).toBeInTheDocument()
       })
     })
   })
 
   describe('Progress Summary', () => {
-    it('should show step completion count', async () => {
+    it('should show step completion stats', async () => {
       render(<SessionDashboard sessionId="session_123" />)
 
       await waitFor(() => {
-        expect(screen.getByText('1 / 2')).toBeInTheDocument()
+        // Shows as "1/2" in the footer stats
+        expect(screen.getByText('1/2')).toBeInTheDocument()
+      })
+    })
+
+    it('should show current phase in summary', async () => {
+      render(<SessionDashboard sessionId="session_123" />)
+
+      await waitFor(() => {
+        // Phase appears in multiple places
+        const allText = document.body.textContent || ''
+        expect(allText).toMatch(/discovery/i)
       })
     })
   })
 
   describe('Loading State', () => {
-    it('should show loading indicator initially', () => {
+    it('should show loading spinner initially', () => {
       render(<SessionDashboard sessionId="session_123" />)
 
-      expect(screen.getByText(/loading/i)).toBeInTheDocument()
+      // Spinner has animate-spin class
+      const spinner = document.querySelector('.animate-spin')
+      expect(spinner).toBeInTheDocument()
+    })
+  })
+
+  describe('Navigation', () => {
+    it('should have back link to home', async () => {
+      render(<SessionDashboard sessionId="session_123" />)
+
+      await waitFor(() => {
+        const backLink = screen.getByRole('link', { name: /rapidproto/i })
+        expect(backLink).toHaveAttribute('href', '/')
+      })
     })
   })
 })
