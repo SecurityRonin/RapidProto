@@ -1,6 +1,6 @@
 /**
  * TDD: Landing Page Tests
- * Minimal & Sophisticated design with black/charcoal accent
+ * Clean design with shadcn/ui components
  */
 
 import { describe, it, expect } from 'vitest'
@@ -8,54 +8,87 @@ import { render, screen } from '@testing-library/react'
 import Home from '@/app/page'
 
 describe('Landing Page', () => {
-  it('renders the brand name with prominent typography', () => {
-    render(<Home />)
-    const heading = screen.getByRole('heading', { name: /rapidproto/i })
-    expect(heading).toBeInTheDocument()
-    expect(heading.className).toMatch(/text-5xl|text-6xl|text-7xl|font-bold/)
+  describe('Hero Section', () => {
+    it('renders the headline', () => {
+      render(<Home />)
+      const heading = screen.getByRole('heading', { level: 1 })
+      expect(heading).toBeInTheDocument()
+      expect(heading.textContent).toMatch(/prototype|50 minutes/i)
+    })
+
+    it('renders the tagline', () => {
+      render(<Home />)
+      const allText = document.body.textContent || ''
+      expect(allText).toMatch(/stop overthinking|focused/i)
+    })
+
+    it('renders the badge', () => {
+      render(<Home />)
+      expect(screen.getByText(/solo developer/i)).toBeInTheDocument()
+    })
   })
 
-  it('renders the tagline with muted styling', () => {
-    render(<Home />)
-    const tagline = screen.getByText(/discovery to demo/i)
-    expect(tagline).toBeInTheDocument()
-    expect(tagline.className).toMatch(/text-gray|text-muted/)
+  describe('CTA Buttons', () => {
+    it('renders Start Session button linking to /session/new', () => {
+      render(<Home />)
+      const ctas = screen.getAllByRole('link', { name: /start session/i })
+      expect(ctas.length).toBeGreaterThan(0)
+      expect(ctas[0]).toHaveAttribute('href', '/session/new')
+    })
+
+    it('renders How it works button', () => {
+      render(<Home />)
+      const howItWorks = screen.getByRole('link', { name: /how it works/i })
+      expect(howItWorks).toBeInTheDocument()
+    })
   })
 
-  it('renders a prominent CTA button linking to /session/new', () => {
-    render(<Home />)
-    const cta = screen.getByRole('link', { name: /start session/i })
-    expect(cta).toHaveAttribute('href', '/session/new')
-    expect(cta.className).toMatch(/bg-black|bg-gray-900|bg-neutral-900/)
+  describe('How it Works Section', () => {
+    it('shows the three phases', () => {
+      render(<Home />)
+      expect(screen.getByText('Discover')).toBeInTheDocument()
+      expect(screen.getByText('Build')).toBeInTheDocument()
+      expect(screen.getByText('Verify')).toBeInTheDocument()
+    })
+
+    it('shows phase durations', () => {
+      render(<Home />)
+      expect(screen.getAllByText('10 min')).toHaveLength(2) // Discover and Verify
+      expect(screen.getByText('30 min')).toBeInTheDocument()
+    })
+
+    it('shows section heading', () => {
+      render(<Home />)
+      expect(screen.getByText(/50-minute framework/i)).toBeInTheDocument()
+    })
   })
 
-  it('has generous whitespace with centered content', () => {
-    render(<Home />)
-    const main = screen.getByRole('main')
-    expect(main.className).toMatch(/min-h-screen/)
-    expect(main.className).toMatch(/flex/)
-    expect(main.className).toMatch(/items-center|justify-center/)
+  describe('Bottom CTA Section', () => {
+    it('renders secondary CTA card', () => {
+      render(<Home />)
+      expect(screen.getByText(/ready to build/i)).toBeInTheDocument()
+    })
   })
 
-  it('shows the three phases with durations', () => {
-    render(<Home />)
-    expect(screen.getByText('Discovery')).toBeInTheDocument()
-    expect(screen.getByText('Build')).toBeInTheDocument()
-    expect(screen.getByText('Demo')).toBeInTheDocument()
-    expect(screen.getAllByText('10 min')).toHaveLength(2) // Discovery and Demo
-    expect(screen.getByText('30 min')).toBeInTheDocument()
+  describe('Footer', () => {
+    it('renders footer with brand name', () => {
+      render(<Home />)
+      // Footer has RapidProto text
+      const allText = document.body.textContent || ''
+      expect(allText).toMatch(/rapidproto/i)
+    })
+
+    it('shows tagline about builders', () => {
+      render(<Home />)
+      expect(screen.getByText(/built for builders/i)).toBeInTheDocument()
+    })
   })
 
-  it('renders logo mark', () => {
-    render(<Home />)
-    // Logo has "R" letter
-    expect(screen.getByText('R')).toBeInTheDocument()
-  })
-
-  it('shows stats summary', () => {
-    render(<Home />)
-    expect(screen.getByText('3 phases')).toBeInTheDocument()
-    expect(screen.getByText('50 minutes')).toBeInTheDocument()
-    expect(screen.getByText('1 prototype')).toBeInTheDocument()
+  describe('Layout', () => {
+    it('has full-height layout', () => {
+      render(<Home />)
+      const main = screen.getByRole('main')
+      expect(main.className).toMatch(/min-h-screen/)
+    })
   })
 })

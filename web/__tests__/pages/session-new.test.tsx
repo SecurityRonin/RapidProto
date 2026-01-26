@@ -1,6 +1,6 @@
 /**
- * TDD: Role Selection Page Tests
- * Minimal & Sophisticated design with black/charcoal accent
+ * TDD: New Session Page Tests
+ * Clean design with shadcn/ui components
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -23,13 +23,13 @@ vi.mock('@/lib/actions', () => ({
   })),
 }))
 
-describe('Role Selection Page', () => {
+describe('New Session Page', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   describe('Layout', () => {
-    it('renders centered content with tight max-width', () => {
+    it('renders centered content with max-width', () => {
       render(<NewSessionPage />)
       const container = document.querySelector('[class*="max-w"]')
       expect(container).toBeInTheDocument()
@@ -39,91 +39,142 @@ describe('Role Selection Page', () => {
       render(<NewSessionPage />)
       expect(screen.getByRole('heading', { name: /new session/i })).toBeInTheDocument()
     })
-  })
 
-  describe('Role Cards', () => {
-    it('renders Builder and Facilitator role options', () => {
+    it('renders back button to home', () => {
       render(<NewSessionPage />)
-      expect(screen.getByText('Builder')).toBeInTheDocument()
-      expect(screen.getByText('Facilitator')).toBeInTheDocument()
-    })
-
-    it('shows role descriptions', () => {
-      render(<NewSessionPage />)
-      // Builder description mentions templates/code/build
-      const allText = document.body.textContent || ''
-      expect(allText).toMatch(/template|code|build/i)
-      // Facilitator description mentions discovery/requirements/demo
-      expect(allText).toMatch(/discovery|requirements|demo/i)
-    })
-
-    it('applies selected state styling when role is clicked', async () => {
-      render(<NewSessionPage />)
-      const builderCard = screen.getByText('Builder').closest('button')
-
-      fireEvent.click(builderCard!)
-
-      await waitFor(() => {
-        expect(builderCard?.className).toMatch(/border-black|border-gray-900|ring-black|ring-gray-900|bg-gray-50/)
-      })
+      const backLink = document.querySelector('a[href="/"]')
+      expect(backLink).toBeInTheDocument()
     })
   })
 
-  describe('Session Title Input', () => {
-    it('renders optional session title input', () => {
+  describe('Project Name Input', () => {
+    it('renders project name input', () => {
       render(<NewSessionPage />)
-      const input = screen.getByPlaceholderText(/acme|client|session/i)
+      const input = screen.getByPlaceholderText(/todo|landing|dashboard/i)
       expect(input).toBeInTheDocument()
     })
 
-    it('has minimal styling (underline or borderless)', () => {
+    it('shows "What are you building?" heading', () => {
       render(<NewSessionPage />)
-      const input = screen.getByPlaceholderText(/acme|client|session/i)
-      // Should have minimal border styling
-      expect(input.className).toMatch(/border|underline/)
+      expect(screen.getByText(/what are you building/i)).toBeInTheDocument()
+    })
+
+    it('allows typing project name', async () => {
+      render(<NewSessionPage />)
+      const input = screen.getByPlaceholderText(/todo|landing|dashboard/i)
+
+      fireEvent.change(input, { target: { value: 'My Todo App' } })
+
+      expect(input).toHaveValue('My Todo App')
+    })
+  })
+
+  describe('Session Timeline', () => {
+    it('shows the three phases with durations', () => {
+      render(<NewSessionPage />)
+      const allText = document.body.textContent || ''
+
+      expect(allText).toMatch(/discovery/i)
+      expect(allText).toMatch(/build/i)
+      expect(allText).toMatch(/verify/i)
+      expect(allText).toMatch(/10 min/) // Discovery and Verify phases
+      expect(allText).toMatch(/30 min/) // Build phase
+    })
+
+    it('displays session timeline heading', () => {
+      render(<NewSessionPage />)
+      expect(screen.getByText(/session timeline/i)).toBeInTheDocument()
+    })
+
+    it('mentions 50 minutes total', () => {
+      render(<NewSessionPage />)
+      const allText = document.body.textContent || ''
+      expect(allText).toMatch(/50/)
     })
   })
 
   describe('Start Button', () => {
-    it('renders disabled when no role selected', () => {
+    it('renders start session button', () => {
       render(<NewSessionPage />)
-      const button = screen.getByRole('button', { name: /start session/i })
-      expect(button).toBeDisabled()
+      const button = screen.getByRole('button', { name: /start.*session/i })
+      expect(button).toBeInTheDocument()
     })
 
-    it('enables when role is selected', async () => {
+    it('button is enabled by default (no role selection needed)', () => {
       render(<NewSessionPage />)
-      const builderCard = screen.getByText('Builder').closest('button')
-      fireEvent.click(builderCard!)
+      const button = screen.getByRole('button', { name: /start.*session/i })
+      expect(button).not.toBeDisabled()
+    })
+
+    it('creates session when clicked', async () => {
+      const { createSession } = await import('@/lib/actions')
+      const mockRouter = { push: vi.fn() }
+      vi.mocked(useRouter).mockReturnValue(mockRouter as any)
+
+      render(<NewSessionPage />)
+
+      const button = screen.getByRole('button', { name: /start.*session/i })
+      fireEvent.click(button)
 
       await waitFor(() => {
-        const startButton = screen.getByRole('button', { name: /start session/i })
-        expect(startButton).not.toBeDisabled()
+        expect(createSession).toHaveBeenCalledWith({
+          role: 'builder',
+          sessionTitle: 'Untitled Prototype',
+        })
       })
     })
 
-    it('has black/dark background when enabled', async () => {
+    it('creates session with custom title when provided', async () => {
+      const { createSession } = await import('@/lib/actions')
+      const mockRouter = { push: vi.fn() }
+      vi.mocked(useRouter).mockReturnValue(mockRouter as any)
+
       render(<NewSessionPage />)
-      const builderCard = screen.getByText('Builder').closest('button')
-      fireEvent.click(builderCard!)
+
+      const input = screen.getByPlaceholderText(/todo|landing|dashboard/i)
+      fireEvent.change(input, { target: { value: 'My Cool App' } })
+
+      const button = screen.getByRole('button', { name: /start.*session/i })
+      fireEvent.click(button)
 
       await waitFor(() => {
-        const startButton = screen.getByRole('button', { name: /start session/i })
-        expect(startButton.className).toMatch(/bg-black|bg-gray-900|bg-neutral-900/)
+        expect(createSession).toHaveBeenCalledWith({
+          role: 'builder',
+          sessionTitle: 'My Cool App',
+        })
+      })
+    })
+
+    it('redirects to session page after creation', async () => {
+      const mockRouter = { push: vi.fn() }
+      vi.mocked(useRouter).mockReturnValue(mockRouter as any)
+
+      render(<NewSessionPage />)
+
+      const button = screen.getByRole('button', { name: /start.*session/i })
+      fireEvent.click(button)
+
+      await waitFor(() => {
+        expect(mockRouter.push).toHaveBeenCalledWith('/session/test-session-id')
+      })
+    })
+
+    it('shows loading state when starting', async () => {
+      render(<NewSessionPage />)
+
+      const button = screen.getByRole('button', { name: /start.*session/i })
+      fireEvent.click(button)
+
+      await waitFor(() => {
+        expect(screen.getByText(/starting/i)).toBeInTheDocument()
       })
     })
   })
 
-  describe('Timeline Preview', () => {
-    it('shows the three phases with durations', () => {
+  describe('Warning Message', () => {
+    it('shows warning that timer starts immediately', () => {
       render(<NewSessionPage />)
-      // Check that Discovery, Build, Demo appear in the timeline
-      const allText = document.body.textContent || ''
-      expect(allText).toMatch(/discovery/i)
-      expect(allText).toMatch(/build/i)
-      expect(allText).toMatch(/demo/i)
-      expect(allText).toMatch(/10/) // 10 min phases
-      expect(allText).toMatch(/30/) // 30 min build
+      expect(screen.getByText(/timer starts immediately/i)).toBeInTheDocument()
     })
   })
 })

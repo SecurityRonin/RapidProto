@@ -2,165 +2,177 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { createSession } from '@/lib/actions'
-import type { Role } from '@/types/actions'
-import { Wrench, Users, Check } from 'lucide-react'
-
-const roles: Array<{
-  id: Role
-  title: string
-  description: string
-  icon: typeof Wrench
-}> = [
-  {
-    id: 'builder',
-    title: 'Builder',
-    description: 'Select templates, customize code, and build the MVP.',
-    icon: Wrench,
-  },
-  {
-    id: 'facilitator',
-    title: 'Facilitator',
-    description: 'Conduct discovery, gather requirements, and present the demo.',
-    icon: Users,
-  },
-]
+import { ArrowLeft, ArrowRight, Timer, Layers, Rocket, Loader2 } from 'lucide-react'
 
 export default function NewSessionPage() {
   const router = useRouter()
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null)
-  const [sessionTitle, setSessionTitle] = useState('')
-  const [isCreating, setIsCreating] = useState(false)
+  const [projectName, setProjectName] = useState('')
+  const [isStarting, setIsStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function handleCreateSession() {
-    if (!selectedRole) return
-
-    setIsCreating(true)
+  const handleStartSession = async () => {
+    setIsStarting(true)
     setError(null)
-
-    const result = await createSession({
-      role: selectedRole,
-      sessionTitle: sessionTitle.trim() || undefined,
-    })
-
-    if (result.success) {
-      router.push(`/session/${result.data.id}`)
-    } else {
-      setError(result.error)
-      setIsCreating(false)
+    try {
+      const result = await createSession({
+        role: 'builder',
+        sessionTitle: projectName || 'Untitled Prototype',
+      })
+      if (result.success && result.data) {
+        router.push(`/session/${result.data.id}`)
+      } else {
+        setError('error' in result ? result.error : 'Failed to create session')
+        setIsStarting(false)
+      }
+    } catch (err) {
+      console.error('Failed to create session:', err)
+      setError('Something went wrong. Please try again.')
+      setIsStarting(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Minimal Header */}
-      <header className="px-6 py-6">
-        <a href="/" className="text-sm font-medium text-gray-400 hover:text-gray-900 transition-colors">
-          RapidProto
-        </a>
-      </header>
-
-      {/* Main Content */}
-      <div className="max-w-lg mx-auto px-6 py-12">
-        <div className="space-y-12">
-          {/* Title */}
+    <main className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-12">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/">
+              <ArrowLeft className="w-4 h-4" />
+            </Link>
+          </Button>
           <div>
-            <h1 className="text-3xl font-semibold text-gray-900 tracking-tight">
-              New Session
-            </h1>
-            <p className="mt-2 text-gray-500">
-              Select your role to begin
-            </p>
-          </div>
-
-          {/* Role Selection */}
-          <div className="space-y-3">
-            {roles.map((role) => {
-              const Icon = role.icon
-              const isSelected = selectedRole === role.id
-
-              return (
-                <button
-                  key={role.id}
-                  onClick={() => setSelectedRole(role.id)}
-                  className={`w-full p-5 rounded-2xl border-2 text-left transition-all duration-150 relative ${
-                    isSelected
-                      ? 'border-gray-900 bg-gray-50'
-                      : 'border-gray-200 hover:border-gray-300 bg-white'
-                  }`}
-                >
-                  {/* Selection Indicator */}
-                  {isSelected && (
-                    <div className="absolute top-4 right-4 w-6 h-6 bg-black rounded-full flex items-center justify-center">
-                      <Check className="w-4 h-4 text-white" strokeWidth={3} />
-                    </div>
-                  )}
-
-                  <div className="flex items-start gap-4">
-                    <div className={`p-2.5 rounded-xl ${isSelected ? 'bg-gray-200' : 'bg-gray-100'}`}>
-                      <Icon className="w-5 h-5 text-gray-700" strokeWidth={1.5} />
-                    </div>
-                    <div className="flex-1 pr-8">
-                      <h2 className="text-lg font-medium text-gray-900">{role.title}</h2>
-                      <p className="mt-1 text-sm text-gray-500 leading-relaxed">{role.description}</p>
-                    </div>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Session Title Input */}
-          <div>
-            <input
-              type="text"
-              value={sessionTitle}
-              onChange={(e) => setSessionTitle(e.target.value)}
-              placeholder="Session title (optional)"
-              className="w-full px-0 py-3 text-gray-900 placeholder-gray-400 border-0 border-b-2 border-gray-200 focus:border-gray-900 focus:ring-0 transition-colors bg-transparent"
-            />
-          </div>
-
-          {/* Error Display */}
-          {error && (
-            <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* Start Button */}
-          <button
-            onClick={handleCreateSession}
-            disabled={!selectedRole || isCreating}
-            className="w-full py-4 px-6 text-base font-medium text-white bg-black rounded-full hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed transition-all duration-200"
-          >
-            {isCreating ? 'Creating...' : 'Start Session'}
-          </button>
-
-          {/* Timeline Preview */}
-          <div className="pt-4">
-            <div className="flex items-center justify-center gap-4 text-sm text-gray-400">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-gray-300" />
-                <span>Discovery</span>
-                <span className="text-gray-300">10m</span>
-              </div>
-              <div className="w-8 h-px bg-gray-200" />
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-gray-300" />
-                <span>Build</span>
-                <span className="text-gray-300">30m</span>
-              </div>
-              <div className="w-8 h-px bg-gray-200" />
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-gray-300" />
-                <span>Demo</span>
-                <span className="text-gray-300">10m</span>
-              </div>
-            </div>
+            <h1 className="text-2xl font-semibold">New Session</h1>
+            <p className="text-sm text-muted-foreground">Start your 50-minute prototype sprint</p>
           </div>
         </div>
+
+        {/* Project Name Input */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="text-lg">What are you building?</CardTitle>
+            <CardDescription>
+              Give your prototype a name. You can always change this later.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Input
+              placeholder="e.g., Todo App, Landing Page, API Dashboard..."
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              className="text-lg h-12"
+              autoFocus
+            />
+          </CardContent>
+        </Card>
+
+        {/* Session Overview */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="text-lg">Session Timeline</CardTitle>
+            <CardDescription>
+              50 minutes of focused building, broken into 3 phases
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <PhaseRow
+              icon={<Layers className="w-4 h-4" />}
+              title="Discovery"
+              duration="10 min"
+              description="Define what you're building, pick a template"
+            />
+            <PhaseRow
+              icon={<Timer className="w-4 h-4" />}
+              title="Build"
+              duration="30 min"
+              description="Code the core functionality"
+              highlighted
+            />
+            <PhaseRow
+              icon={<Rocket className="w-4 h-4" />}
+              title="Verify"
+              duration="10 min"
+              description="Test, fix critical issues, ship"
+            />
+          </CardContent>
+        </Card>
+
+        {/* Error Display */}
+        {error && (
+          <Card className="mb-8 border-destructive bg-destructive/5">
+            <CardContent className="py-4">
+              <p className="text-sm text-destructive">{error}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Start Button */}
+        <div className="flex flex-col items-center gap-4">
+          <Button
+            size="lg"
+            className="w-full max-w-sm h-14 text-lg"
+            onClick={handleStartSession}
+            disabled={isStarting}
+          >
+            {isStarting ? (
+              <>
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                Starting...
+              </>
+            ) : (
+              <>
+                Start 50-min Session
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </>
+            )}
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            The timer starts immediately. Ready?
+          </p>
+        </div>
+      </div>
+    </main>
+  )
+}
+
+function PhaseRow({
+  icon,
+  title,
+  duration,
+  description,
+  highlighted = false,
+}: {
+  icon: React.ReactNode
+  title: string
+  duration: string
+  description: string
+  highlighted?: boolean
+}) {
+  return (
+    <div className={`
+      flex items-center gap-4 p-3 rounded-lg transition-colors
+      ${highlighted ? 'bg-primary/5 border border-primary/20' : 'hover:bg-muted/50'}
+    `}>
+      <div className={`
+        w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
+        ${highlighted ? 'bg-primary text-primary-foreground' : 'bg-muted'}
+      `}>
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{title}</span>
+          <Badge variant={highlighted ? 'default' : 'secondary'} className="text-xs">
+            {duration}
+          </Badge>
+        </div>
+        <p className="text-sm text-muted-foreground">{description}</p>
       </div>
     </div>
   )

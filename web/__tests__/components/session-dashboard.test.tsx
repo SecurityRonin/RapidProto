@@ -107,8 +107,8 @@ describe('SessionDashboard', () => {
       render(<SessionDashboard sessionId="session_123" />)
 
       await waitFor(() => {
-        // Progress bar element exists
-        const progressContainer = document.querySelector('.bg-gray-100.rounded-full')
+        // Progress bar element exists (shadcn Progress component)
+        const progressContainer = document.querySelector('[role="progressbar"], [class*="progress"], .bg-gray-100.rounded-full')
         expect(progressContainer).toBeInTheDocument()
       })
     })
