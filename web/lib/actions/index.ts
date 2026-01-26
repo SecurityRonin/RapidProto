@@ -8,24 +8,9 @@
 
 'use server'
 
-import { auth as clerkAuth } from '@clerk/nextjs'
 import { db } from '@/lib/db'
+import { auth } from './auth'
 
-// Auth wrapper for testability - can be overridden via setAuthProvider in tests
-type AuthProvider = () => { userId: string | null }
-let authProvider: AuthProvider = clerkAuth
-
-export function setAuthProvider(provider: AuthProvider) {
-  authProvider = provider
-}
-
-export function resetAuthProvider() {
-  authProvider = clerkAuth
-}
-
-function auth() {
-  return authProvider()
-}
 import {
   sessions,
   sessionSteps,

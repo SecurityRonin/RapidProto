@@ -25,9 +25,8 @@ import {
   addNote,
   getSessionStatus,
   getTimeRemaining,
-  setAuthProvider,
-  resetAuthProvider,
 } from '@/lib/actions'
+import { setAuthProvider, resetAuthProvider } from '@/lib/actions/auth'
 
 describe('Session Assistant Actions', () => {
   // Auth is set up in setup-node.ts, but we can override per test
