@@ -55,6 +55,7 @@ import type {
   SessionStatusResponse,
   TimeRemainingResponse,
 } from '@/types/actions'
+import { handleActionError } from '@/lib/utils/errors'
 
 // ============================================================================
 // Validation Schemas
@@ -231,10 +232,7 @@ export async function createSession(input: z.infer<typeof createSessionSchema>):
       },
     }
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message, code: 'VALIDATION_ERROR' }
-    }
-    return { success: false, error: 'Failed to create session', code: 'INTERNAL_ERROR' }
+    return handleActionError({ action: 'createSession' }, error)
   }
 }
 
@@ -272,7 +270,7 @@ export async function pauseSession(sessionId: string): Promise<PauseSessionRespo
       data: updated,
     }
   } catch (error) {
-    return { success: false, error: 'Failed to pause session', code: 'INTERNAL_ERROR' }
+    return handleActionError({ action: 'pauseSession', sessionId }, error)
   }
 }
 
@@ -316,7 +314,7 @@ export async function resumeSession(sessionId: string): Promise<ResumeSessionRes
       data: updated,
     }
   } catch (error) {
-    return { success: false, error: 'Failed to resume session', code: 'INTERNAL_ERROR' }
+    return handleActionError({ action: 'resumeSession', sessionId }, error)
   }
 }
 
@@ -360,7 +358,7 @@ export async function advancePhase(sessionId: string): Promise<AdvancePhaseRespo
       data: updated,
     }
   } catch (error) {
-    return { success: false, error: 'Failed to advance phase', code: 'INTERNAL_ERROR' }
+    return handleActionError({ action: 'advancePhase', sessionId }, error)
   }
 }
 
@@ -404,7 +402,7 @@ export async function completeSession(sessionId: string): Promise<CompleteSessio
       },
     }
   } catch (error) {
-    return { success: false, error: 'Failed to complete session', code: 'INTERNAL_ERROR' }
+    return handleActionError({ action: 'completeSession', sessionId }, error)
   }
 }
 
@@ -452,10 +450,7 @@ export async function updateStep(stepId: string, data: z.infer<typeof updateStep
       data: updated,
     }
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message, code: 'VALIDATION_ERROR' }
-    }
-    return { success: false, error: 'Failed to update step', code: 'INTERNAL_ERROR' }
+    return handleActionError({ action: 'updateStep' }, error)
   }
 }
 
@@ -531,10 +526,7 @@ export async function saveClientInfo(sessionId: string, info: z.infer<typeof cli
       return { success: true, data: created }
     }
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message, code: 'VALIDATION_ERROR' }
-    }
-    return { success: false, error: 'Failed to save client info', code: 'INTERNAL_ERROR' }
+    return handleActionError({ action: 'saveClientInfo', sessionId }, error)
   }
 }
 
@@ -577,10 +569,7 @@ export async function addTemplateSelection(sessionId: string, selection: z.infer
       data: created,
     }
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message, code: 'VALIDATION_ERROR' }
-    }
-    return { success: false, error: 'Failed to add template selection', code: 'INTERNAL_ERROR' }
+    return handleActionError({ action: 'addTemplateSelection', sessionId }, error)
   }
 }
 
@@ -616,10 +605,7 @@ export async function addNote(sessionId: string, note: z.infer<typeof noteSchema
       data: created,
     }
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message, code: 'VALIDATION_ERROR' }
-    }
-    return { success: false, error: 'Failed to add note', code: 'INTERNAL_ERROR' }
+    return handleActionError({ action: 'addNote', sessionId }, error)
   }
 }
 
@@ -670,7 +656,7 @@ export async function getSessionStatus(sessionId: string): Promise<SessionStatus
       },
     }
   } catch (error) {
-    return { success: false, error: 'Failed to get session status', code: 'INTERNAL_ERROR' }
+    return handleActionError({ action: 'getSessionStatus', sessionId }, error)
   }
 }
 
@@ -722,6 +708,6 @@ export async function getTimeRemaining(sessionId: string): Promise<TimeRemaining
       },
     }
   } catch (error) {
-    return { success: false, error: 'Failed to get time remaining', code: 'INTERNAL_ERROR' }
+    return handleActionError({ action: 'getTimeRemaining', sessionId }, error)
   }
 }

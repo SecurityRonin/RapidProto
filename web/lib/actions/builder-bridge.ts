@@ -9,6 +9,9 @@ import { auth } from '@clerk/nextjs'
 import { db } from '@/lib/db'
 import { sessions, clientInfo, templateSelections } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { handleActionError } from '@/lib/utils/errors'
+import { parseStringArray } from '@/lib/utils/json-fields'
+import { toBuilderPhase } from '@/lib/utils/type-bridge'
 
 // Import core builder functions
 import {
@@ -67,10 +70,7 @@ export async function suggestTemplates(sessionId: string) {
       }
     }
   } catch (error) {
-    return {
-      success: false,
-      error: 'Failed to suggest templates',
-    }
+    return handleActionError({ action: 'suggestTemplates', sessionId }, error)
   }
 }
 
@@ -107,10 +107,7 @@ export async function initializeSelectedTemplate(
 
     return result
   } catch (error) {
-    return {
-      success: false,
-      error: 'Failed to initialize project',
-    }
+    return handleActionError({ action: 'initializeSelectedTemplate', sessionId }, error)
   }
 }
 
@@ -152,7 +149,7 @@ export async function getBuilderProgress(sessionId: string) {
       templateNumber: template.templateNumber,
       startTime: session.startedAt,
       phases: [], // Would populate from sessionSteps
-      currentPhase: session.currentPhase as any,
+      currentPhase: toBuilderPhase(session.currentPhase),
     }
 
     // Get progress status
@@ -163,10 +160,7 @@ export async function getBuilderProgress(sessionId: string) {
       data: progress,
     }
   } catch (error) {
-    return {
-      success: false,
-      error: 'Failed to get builder progress',
-    }
+    return handleActionError({ action: 'getBuilderProgress', sessionId }, error)
   }
 }
 
@@ -208,7 +202,7 @@ export async function sendBuilderStatus(
       templateNumber: template.templateNumber,
       startTime: session.startedAt,
       phases: [],
-      currentPhase: session.currentPhase as any,
+      currentPhase: toBuilderPhase(session.currentPhase),
       demoReady: session.status === 'completed',
     }
 
@@ -220,10 +214,7 @@ export async function sendBuilderStatus(
       data: message,
     }
   } catch (error) {
-    return {
-      success: false,
-      error: 'Failed to send builder status',
-    }
+    return handleActionError({ action: 'sendBuilderStatus', sessionId }, error)
   }
 }
 
@@ -259,17 +250,14 @@ export async function generateDemoScript(sessionId: string) {
       return { success: false, error: 'No template selected' }
     }
 
-    // Parse client requirements
-    const clientRequirements = client?.mustHaveFeatures
-      ? JSON.parse(client.mustHaveFeatures)
-      : []
+    // Parse client requirements with safe JSON parsing
+    const clientRequirements = parseStringArray(client?.mustHaveFeatures ?? null)
 
-    const testScenarios = client?.threeWins
-      ? JSON.parse(client.threeWins).map((win: string) => ({
-          description: win,
-          expectedOutcome: `Demonstrate ${win}`,
-        }))
-      : []
+    const testScenarios = parseStringArray(client?.threeWins ?? null)
+      .map((win: string) => ({
+        description: win,
+        expectedOutcome: `Demonstrate ${win}`,
+      }))
 
     // Build core session with all context
     const coreSession: CoreBuilderSession = {
@@ -277,7 +265,7 @@ export async function generateDemoScript(sessionId: string) {
       templateNumber: template.templateNumber,
       startTime: session.startedAt,
       phases: [],
-      currentPhase: session.currentPhase as any,
+      currentPhase: toBuilderPhase(session.currentPhase),
       demoReady: true,
       customizations: template.customizationNotes
         ? [template.customizationNotes]
@@ -297,9 +285,6 @@ export async function generateDemoScript(sessionId: string) {
       data: script,
     }
   } catch (error) {
-    return {
-      success: false,
-      error: 'Failed to generate demo script',
-    }
+    return handleActionError({ action: 'generateDemoScript', sessionId }, error)
   }
 }

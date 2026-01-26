@@ -47,15 +47,36 @@ export function StepChecklist({ steps, currentPhase }: StepChecklistProps) {
   }
 
   const handleStartStep = async (stepId: string) => {
-    await updateStep(stepId, { status: 'in_progress' })
+    try {
+      const result = await updateStep(stepId, { status: 'in_progress' })
+      if (!result.success) {
+        console.error('Failed to start step:', result.error)
+      }
+    } catch (error) {
+      console.error('Error starting step:', error)
+    }
   }
 
   const handleCompleteStep = async (stepId: string) => {
-    await updateStep(stepId, { status: 'completed' })
+    try {
+      const result = await updateStep(stepId, { status: 'completed' })
+      if (!result.success) {
+        console.error('Failed to complete step:', result.error)
+      }
+    } catch (error) {
+      console.error('Error completing step:', error)
+    }
   }
 
   const handleSkipStep = async (stepId: string) => {
-    await updateStep(stepId, { status: 'skipped' })
+    try {
+      const result = await updateStep(stepId, { status: 'skipped' })
+      if (!result.success) {
+        console.error('Failed to skip step:', result.error)
+      }
+    } catch (error) {
+      console.error('Error skipping step:', error)
+    }
   }
 
   const handleAddNotes = (stepId: string, currentNotes?: string | null) => {
@@ -64,9 +85,17 @@ export function StepChecklist({ steps, currentPhase }: StepChecklistProps) {
   }
 
   const handleSaveNotes = async (stepId: string) => {
-    await updateStep(stepId, { notes: notesValue })
-    setEditingNotes(null)
-    setNotesValue('')
+    try {
+      const result = await updateStep(stepId, { notes: notesValue })
+      if (!result.success) {
+        console.error('Failed to save notes:', result.error)
+      } else {
+        setEditingNotes(null)
+        setNotesValue('')
+      }
+    } catch (error) {
+      console.error('Error saving notes:', error)
+    }
   }
 
   const formatTimeSpent = (seconds: number) => {

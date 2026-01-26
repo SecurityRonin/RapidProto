@@ -9,7 +9,7 @@ export default defineConfig({
     // Templates are tested individually when cloned
     include: [
       'lib/**/*.test.ts',
-      'app/**/*.test.{ts,tsx}',
+      'web/**/*.test.{ts,tsx}',
     ],
     exclude: [
       'node_modules/**',
@@ -23,7 +23,7 @@ export default defineConfig({
       reporter: ['text', 'json', 'html'],
       include: [
         'lib/**/*.ts',
-        'app/**/*.{ts,tsx}',
+        'web/**/*.{ts,tsx}',
       ],
       exclude: [
         'node_modules/',

@@ -13,6 +13,9 @@ import { auth } from '@clerk/nextjs'
 import { db } from '@/lib/db'
 import { sessions, clientInfo, templateSelections, sessionNotes } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
+import { handleActionError } from '@/lib/utils/errors'
+import { parseStringArray } from '@/lib/utils/json-fields'
+import { toBuilderPhase } from '@/lib/utils/type-bridge'
 
 // Import core facilitator functions
 import {
@@ -58,10 +61,7 @@ export async function generateDiscoveryQuestionsForSession(
       data: questions,
     }
   } catch (error) {
-    return {
-      success: false,
-      error: 'Failed to generate discovery questions',
-    }
+    return handleActionError({ action: 'generateDiscoveryQuestionsForSession', sessionId }, error)
   }
 }
 
@@ -141,10 +141,7 @@ export async function excavateSessionProblem(sessionId: string) {
       data: profile,
     }
   } catch (error) {
-    return {
-      success: false,
-      error: 'Failed to excavate problem profile',
-    }
+    return handleActionError({ action: 'excavateSessionProblem', sessionId }, error)
   }
 }
 
@@ -182,10 +179,7 @@ export async function planSessionEngagement(
       data: plan,
     }
   } catch (error) {
-    return {
-      success: false,
-      error: 'Failed to plan engagement activities',
-    }
+    return handleActionError({ action: 'planSessionEngagement', sessionId }, error)
   }
 }
 
@@ -227,24 +221,21 @@ export async function orchestrateSessionDemo(sessionId: string) {
       return { success: false, error: 'Problem profile required' }
     }
 
-    // Build builder session for demo script
-    const clientRequirements = client?.mustHaveFeatures
-      ? JSON.parse(client.mustHaveFeatures)
-      : []
+    // Build builder session for demo script with safe JSON parsing
+    const clientRequirements = parseStringArray(client?.mustHaveFeatures ?? null)
 
-    const testScenarios = client?.threeWins
-      ? JSON.parse(client.threeWins).map((win: string) => ({
-          description: win,
-          expectedOutcome: `Demonstrate ${win}`,
-        }))
-      : []
+    const testScenarios = parseStringArray(client?.threeWins ?? null)
+      .map((win: string) => ({
+        description: win,
+        expectedOutcome: `Demonstrate ${win}`,
+      }))
 
     const builderSession: BuilderSession = {
       id: session.id,
       templateNumber: template.templateNumber,
       startTime: session.startedAt,
       phases: [],
-      currentPhase: session.currentPhase as BuilderSession['currentPhase'],
+      currentPhase: toBuilderPhase(session.currentPhase),
       demoReady: true,
       customizations: template.customizationNotes
         ? [template.customizationNotes]
@@ -257,9 +248,9 @@ export async function orchestrateSessionDemo(sessionId: string) {
     // Generate demo script
     const demoScript = prepareDemoScript(builderSession)
 
-    // Orchestrate demo using core function
-    const threeWins = client?.threeWins ? JSON.parse(client.threeWins) : []
-    const painPoints = client?.painPoints ? JSON.parse(client.painPoints) : []
+    // Orchestrate demo using core function with safe JSON parsing
+    const threeWins = parseStringArray(client?.threeWins ?? null)
+    const painPoints = parseStringArray(client?.painPoints ?? null)
 
     const orchestration = orchestrateDemo(demoScript, {
       threeWins,
@@ -274,10 +265,7 @@ export async function orchestrateSessionDemo(sessionId: string) {
       },
     }
   } catch (error) {
-    return {
-      success: false,
-      error: 'Failed to orchestrate demo',
-    }
+    return handleActionError({ action: 'orchestrateSessionDemo', sessionId }, error)
   }
 }
 
@@ -309,8 +297,8 @@ export async function generateSessionFollowUp(sessionId: string) {
       .from(templateSelections)
       .where(eq(templateSelections.sessionId, sessionId))
 
-    // Parse threeWins from JSON
-    const threeWins = client?.threeWins ? JSON.parse(client.threeWins) : []
+    // Parse threeWins with safe JSON parsing
+    const threeWins = parseStringArray(client?.threeWins ?? null)
 
     // Get action item notes as next steps
     const actionNotes = await db.select()
@@ -334,9 +322,6 @@ export async function generateSessionFollowUp(sessionId: string) {
       data: followUp,
     }
   } catch (error) {
-    return {
-      success: false,
-      error: 'Failed to generate follow-up email',
-    }
+    return handleActionError({ action: 'generateSessionFollowUp', sessionId }, error)
   }
 }
