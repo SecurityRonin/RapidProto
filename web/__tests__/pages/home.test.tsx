@@ -36,4 +36,26 @@ describe('Landing Page', () => {
     expect(main.className).toMatch(/flex/)
     expect(main.className).toMatch(/items-center|justify-center/)
   })
+
+  it('shows the three phases with durations', () => {
+    render(<Home />)
+    expect(screen.getByText('Discovery')).toBeInTheDocument()
+    expect(screen.getByText('Build')).toBeInTheDocument()
+    expect(screen.getByText('Demo')).toBeInTheDocument()
+    expect(screen.getAllByText('10 min')).toHaveLength(2) // Discovery and Demo
+    expect(screen.getByText('30 min')).toBeInTheDocument()
+  })
+
+  it('renders logo mark', () => {
+    render(<Home />)
+    // Logo has "R" letter
+    expect(screen.getByText('R')).toBeInTheDocument()
+  })
+
+  it('shows stats summary', () => {
+    render(<Home />)
+    expect(screen.getByText('3 phases')).toBeInTheDocument()
+    expect(screen.getByText('50 minutes')).toBeInTheDocument()
+    expect(screen.getByText('1 prototype')).toBeInTheDocument()
+  })
 })
