@@ -9,21 +9,42 @@ import { useState } from 'react'
 import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { updateStep } from '@/lib/actions'
+import { updateStep } from '@/lib/client-actions'
 import { cn } from '@/lib/utils'
-import type { SessionStep } from '@/lib/db/schema'
+import type { SessionStep } from '@/lib/store'
 
 interface StepChecklistProps {
   steps: SessionStep[]
-  currentPhase: 'discovery' | 'build' | 'demo'
+  currentPhase: 'discovery' | 'build' | 'demo' | 'expectations' | 'longterm' | 'close'
 }
 
 export function StepChecklist({ steps, currentPhase }: StepChecklistProps) {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set())
   const [editingNotes, setEditingNotes] = useState<string | null>(null)
   const [notesValue, setNotesValue] = useState('')
+  const [acquiredValues, setAcquiredValues] = useState<Record<string, string>>({})
+
+  // Initialize acquired values from steps
+  const getAcquiredValue = (step: SessionStep): string => {
+    if (acquiredValues[step.id] !== undefined) return acquiredValues[step.id]
+    return step.acquiredValue || ''
+  }
+
+  const handleAcquiredValueChange = (stepId: string, value: string) => {
+    setAcquiredValues(prev => ({ ...prev, [stepId]: value }))
+  }
+
+  const handleSaveAcquiredValue = (stepId: string) => {
+    try {
+      const result = updateStep(stepId, { acquiredValue: acquiredValues[stepId] })
+      if (!result.success) {
+        console.error('Failed to save answer:', result.error)
+      }
+    } catch (error) {
+      console.error('Error saving answer:', error)
+    }
+  }
 
   const phaseSteps = steps.filter(step => step.phase === currentPhase)
 
@@ -39,10 +60,10 @@ export function StepChecklist({ steps, currentPhase }: StepChecklistProps) {
     })
   }
 
-  const handleToggleStep = async (stepId: string, currentStatus: string) => {
+  const handleToggleStep = (stepId: string, currentStatus: string) => {
     try {
       const newStatus = currentStatus === 'completed' ? 'pending' : 'completed'
-      const result = await updateStep(stepId, { status: newStatus })
+      const result = updateStep(stepId, { status: newStatus })
       if (!result.success) {
         console.error('Failed to update step:', result.error)
       }
@@ -51,9 +72,9 @@ export function StepChecklist({ steps, currentPhase }: StepChecklistProps) {
     }
   }
 
-  const handleSaveNotes = async (stepId: string) => {
+  const handleSaveNotes = (stepId: string) => {
     try {
-      const result = await updateStep(stepId, { notes: notesValue })
+      const result = updateStep(stepId, { notes: notesValue })
       if (!result.success) {
         console.error('Failed to save notes:', result.error)
       } else {
@@ -135,6 +156,25 @@ export function StepChecklist({ steps, currentPhase }: StepChecklistProps) {
                     <div className={cn('description mt-4 space-y-3', isExpanded && 'expanded')}>
                       {step.description && (
                         <p className="text-sm text-muted-foreground">{step.description}</p>
+                      )}
+
+                      {/* Acquired Value Input (builder steps only) */}
+                      {step.role === 'builder' && (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={getAcquiredValue(step)}
+                            onChange={e => handleAcquiredValueChange(step.id, e.target.value)}
+                            placeholder="Your answer..."
+                            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => handleSaveAcquiredValue(step.id)}
+                          >
+                            Save Answer
+                          </Button>
+                        </div>
                       )}
 
                       {/* Notes Section */}

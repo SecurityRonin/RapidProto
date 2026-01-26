@@ -1,6 +1,7 @@
 /**
  * Test Database Helpers
- * Uses in-memory SQLite for server action tests (Option 2)
+ * Uses in-memory SQLite for server action tests
+ * Updated for dual-mode (builder + facilitator) support
  */
 
 import { drizzle } from 'drizzle-orm/libsql'
@@ -22,16 +23,15 @@ export function createTestDb(): TestDb {
 
 /**
  * Set up test database with schema
- * Creates all required tables
+ * Creates all required tables with dual-mode support
  */
 export async function setupTestDb(): Promise<TestDb> {
   const db = createTestDb()
 
-  // Create sessions table
+  // Create sessions table with dual-mode columns
   await db.run(sql`
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
-      role TEXT NOT NULL CHECK(role IN ('builder', 'facilitator')),
       status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'paused', 'completed')),
       current_phase TEXT NOT NULL DEFAULT 'discovery' CHECK(current_phase IN ('discovery', 'build', 'demo')),
       phase_started_at INTEGER NOT NULL,
@@ -42,25 +42,29 @@ export async function setupTestDb(): Promise<TestDb> {
       paused_at INTEGER,
       completed_at INTEGER,
       total_paused_time INTEGER NOT NULL DEFAULT 0,
-      user_id TEXT NOT NULL,
-      team_id TEXT,
+      user_id TEXT,
       session_title TEXT,
+      builder_joined INTEGER NOT NULL DEFAULT 1,
+      facilitator_joined INTEGER NOT NULL DEFAULT 0,
+      expires_at INTEGER,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )
   `)
 
-  // Create session_steps table
+  // Create session_steps table with role and acquired_value
   await db.run(sql`
     CREATE TABLE IF NOT EXISTS session_steps (
       id TEXT PRIMARY KEY,
       session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-      phase TEXT NOT NULL CHECK(phase IN ('discovery', 'build', 'demo')),
+      role TEXT NOT NULL CHECK(role IN ('builder', 'facilitator')),
+      phase TEXT NOT NULL CHECK(phase IN ('discovery', 'build', 'demo', 'expectations', 'longterm', 'close')),
       step_number INTEGER NOT NULL,
       title TEXT NOT NULL,
       description TEXT,
       estimated_minutes INTEGER,
       status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'in_progress', 'completed', 'skipped')),
+      acquired_value TEXT,
       started_at INTEGER,
       completed_at INTEGER,
       time_spent INTEGER,
@@ -122,7 +126,7 @@ export async function setupTestDb(): Promise<TestDb> {
     CREATE TABLE IF NOT EXISTS session_notes (
       id TEXT PRIMARY KEY,
       session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-      phase TEXT NOT NULL CHECK(phase IN ('discovery', 'build', 'demo', 'general')),
+      phase TEXT NOT NULL CHECK(phase IN ('discovery', 'build', 'demo', 'expectations', 'longterm', 'close', 'general')),
       content TEXT NOT NULL,
       created_by TEXT NOT NULL CHECK(created_by IN ('builder', 'facilitator')),
       tags TEXT,
@@ -148,23 +152,24 @@ export async function clearDatabase(db: TestDb): Promise<void> {
 }
 
 /**
- * Seed a test session
+ * Seed a test session with dual-mode support
  */
 export async function seedTestSession(
   db: TestDb,
-  userId: string = 'test_user_123',
   options: {
-    role?: 'builder' | 'facilitator'
+    id?: string
     status?: 'active' | 'paused' | 'completed'
     currentPhase?: 'discovery' | 'build' | 'demo'
+    builderJoined?: boolean
+    facilitatorJoined?: boolean
+    sessionTitle?: string
   } = {}
 ) {
   const now = new Date()
-  const sessionId = `session_${Date.now()}`
+  const sessionId = options.id ?? `session_${Date.now()}`
 
   const session = {
     id: sessionId,
-    role: options.role ?? 'builder',
     status: options.status ?? 'active',
     currentPhase: options.currentPhase ?? 'discovery',
     phaseStartedAt: now,
@@ -175,9 +180,11 @@ export async function seedTestSession(
     pausedAt: null,
     completedAt: null,
     totalPausedTime: 0,
-    userId,
-    teamId: null,
-    sessionTitle: 'Test Session',
+    userId: null,
+    sessionTitle: options.sessionTitle ?? 'Test Session',
+    builderJoined: options.builderJoined ?? true,
+    facilitatorJoined: options.facilitatorJoined ?? false,
+    expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000), // 24h TTL
     createdAt: now,
     updatedAt: now,
   }
@@ -187,24 +194,27 @@ export async function seedTestSession(
 }
 
 /**
- * Seed test steps for a session
+ * Seed test steps for a session with role support
  */
 export async function seedTestSteps(
   db: TestDb,
   sessionId: string,
-  phase: 'discovery' | 'build' | 'demo' = 'discovery'
+  role: 'builder' | 'facilitator' = 'builder',
+  phase: schema.Phase = 'discovery'
 ) {
   const now = new Date()
   const steps = [
     {
       id: `step_${Date.now()}_1`,
       sessionId,
+      role,
       phase,
       stepNumber: 1,
       title: 'Test Step 1',
       description: 'First test step',
       estimatedMinutes: 5,
       status: 'pending' as const,
+      acquiredValue: null,
       startedAt: null,
       completedAt: null,
       timeSpent: null,
@@ -214,12 +224,14 @@ export async function seedTestSteps(
     {
       id: `step_${Date.now()}_2`,
       sessionId,
+      role,
       phase,
       stepNumber: 2,
       title: 'Test Step 2',
       description: 'Second test step',
       estimatedMinutes: 5,
       status: 'pending' as const,
+      acquiredValue: null,
       startedAt: null,
       completedAt: null,
       timeSpent: null,

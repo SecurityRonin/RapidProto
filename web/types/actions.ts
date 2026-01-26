@@ -17,14 +17,16 @@ export type ActionErrorCode =
   | 'INTERNAL_ERROR'
 
 // Phase type used throughout
-export type Phase = 'discovery' | 'build' | 'demo'
+export type BuilderPhase = 'discovery' | 'build' | 'demo'
+export type FacilitatorPhase = 'expectations' | 'longterm' | 'close'
+export type Phase = BuilderPhase | FacilitatorPhase
 export type SessionStatus = 'active' | 'paused' | 'completed'
 export type StepStatus = 'pending' | 'in_progress' | 'completed' | 'skipped'
 export type Role = 'builder' | 'facilitator'
 
 // Time tracking
 export interface TimeRemaining {
-  phase: Phase
+  phase: BuilderPhase | string
   totalMinutes: number
   elapsedMinutes: number
   remainingMinutes: number
@@ -36,12 +38,14 @@ export interface TimeRemaining {
 export interface SessionStep {
   id: string
   sessionId: string
+  role: Role
   phase: Phase
   stepNumber: number
   title: string
   description: string | null
   estimatedMinutes: number | null
   status: StepStatus
+  acquiredValue: string | null
   startedAt: Date | null
   completedAt: Date | null
   timeSpent: number | null
@@ -94,9 +98,8 @@ export interface TemplateSelectionData {
 // Session with nested data (for components that need full details)
 export interface SessionWithDetails {
   id: string
-  role: Role
   status: SessionStatus
-  currentPhase: Phase
+  currentPhase: BuilderPhase
   phaseStartedAt: Date
   discoveryDuration: number
   buildDuration: number
@@ -105,9 +108,11 @@ export interface SessionWithDetails {
   pausedAt: Date | null
   completedAt: Date | null
   totalPausedTime: number
-  userId: string
-  teamId: string | null
+  userId: string | null
   sessionTitle: string | null
+  builderJoined: boolean
+  facilitatorJoined: boolean
+  expiresAt: Date | null
   steps: SessionStep[]
   clientInfo: ClientInfoParsed | null
   selectedTemplate: TemplateSelectionData | null
@@ -116,7 +121,7 @@ export interface SessionWithDetails {
 // Main session status response data (flat structure as returned by action)
 export interface SessionStatusData {
   session: SessionData & { steps?: SessionStep[] }
-  currentPhase: Phase
+  currentPhase: BuilderPhase
   timeRemaining: TimeRemaining | null
   stepsCompleted: number
   stepsTotal: number
@@ -127,9 +132,8 @@ export interface SessionStatusData {
 // Session data as returned from database (without nested relations)
 export interface SessionData {
   id: string
-  role: Role
   status: SessionStatus
-  currentPhase: Phase
+  currentPhase: BuilderPhase
   phaseStartedAt: Date
   discoveryDuration: number
   buildDuration: number
@@ -138,9 +142,11 @@ export interface SessionData {
   pausedAt: Date | null
   completedAt: Date | null
   totalPausedTime: number
-  userId: string
-  teamId: string | null
+  userId: string | null
   sessionTitle: string | null
+  builderJoined: boolean
+  facilitatorJoined: boolean
+  expiresAt: Date | null
   createdAt: Date
   updatedAt: Date
 }
@@ -203,6 +209,9 @@ export interface SessionNoteRaw {
   updatedAt: Date
 }
 
+// Alias for backwards compatibility
+export type SessionStepPhase = Phase
+
 // Response types for each action - matching actual implementation
 export type CreateSessionResponse = ActionResponse<SessionData & { steps: SessionStep[] }>
 export type SessionStatusResponse = ActionResponse<SessionStatusData>
@@ -218,12 +227,10 @@ export type TimeRemainingResponse = ActionResponse<TimeRemaining>
 
 // Input types for actions
 export interface CreateSessionInput {
-  role: Role
   sessionTitle?: string
   discoveryDuration?: number
   buildDuration?: number
   demoDuration?: number
-  teamId?: string
 }
 
 export interface SaveClientInfoInput {
@@ -253,6 +260,7 @@ export interface UpdateStepInput {
 export interface AddNoteInput {
   phase: Phase | 'general'
   content: string
+  createdBy: Role
   tags?: string[]
   isPinned?: boolean
   isActionItem?: boolean

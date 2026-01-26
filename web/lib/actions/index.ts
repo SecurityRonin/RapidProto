@@ -47,12 +47,10 @@ import { handleActionError } from '@/lib/utils/errors'
 // ============================================================================
 
 const createSessionSchema = z.object({
-  role: z.enum(['builder', 'facilitator']),
   sessionTitle: z.string().optional(),
   discoveryDuration: z.number().min(1).max(60).optional(),
   buildDuration: z.number().min(1).max(120).optional(),
   demoDuration: z.number().min(1).max(60).optional(),
-  teamId: z.string().optional(),
 })
 
 const updateStepSchema = z.object({
@@ -96,7 +94,7 @@ const templateSelectionSchema = z.object({
 })
 
 const noteSchema = z.object({
-  phase: z.enum(['discovery', 'build', 'demo', 'general']),
+  phase: z.enum(['discovery', 'build', 'demo', 'expectations', 'longterm', 'close', 'general']),
   content: z.string(),
   createdBy: z.enum(['builder', 'facilitator']),
   tags: z.array(z.string()).optional(),
@@ -165,10 +163,9 @@ export async function createSession(input: z.infer<typeof createSessionSchema>):
     const sessionId = nanoid()
     const now = new Date()
 
-    // Create session
+    // Create session (as builder - facilitator joins later)
     const [session] = await db.insert(sessions).values({
       id: sessionId,
-      role: validated.role,
       status: 'active',
       currentPhase: 'discovery',
       phaseStartedAt: now,
@@ -180,27 +177,28 @@ export async function createSession(input: z.infer<typeof createSessionSchema>):
       completedAt: null,
       totalPausedTime: 0,
       userId,
-      teamId: validated.teamId ?? null,
       sessionTitle: validated.sessionTitle ?? null,
+      builderJoined: true,
+      facilitatorJoined: false,
       createdAt: now,
       updatedAt: now,
     }).returning()
 
-    // Initialize steps based on role
-    const stepTemplates = validated.role === 'builder'
-      ? getBuilderSteps()
-      : getFacilitatorSteps()
+    // Initialize builder steps (facilitator steps added when they join)
+    const stepTemplates = getBuilderSteps()
 
     const steps = await db.insert(sessionSteps).values(
       stepTemplates.map(step => ({
         id: nanoid(),
         sessionId: session.id,
+        role: 'builder' as const,
         phase: step.phase,
         stepNumber: step.stepNumber,
         title: step.title,
         description: step.description ?? null,
         estimatedMinutes: step.estimatedMinutes ?? null,
         status: 'pending' as const,
+        acquiredValue: null,
         startedAt: null,
         completedAt: null,
         timeSpent: null,

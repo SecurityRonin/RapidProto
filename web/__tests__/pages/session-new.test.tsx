@@ -15,17 +15,34 @@ vi.mock('next/navigation', () => ({
   })),
 }))
 
-// Mock createSession action
-vi.mock('@/lib/actions', () => ({
-  createSession: vi.fn(() => Promise.resolve({
+// Mock fetch for API calls
+const mockFetch = vi.fn(() => Promise.resolve({
+  json: () => Promise.resolve({
     success: true,
     data: { id: 'test-session-id' }
-  })),
+  }),
 }))
+global.fetch = mockFetch as any
+
+// Mock localStorage
+const mockLocalStorage = {
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  clear: vi.fn(),
+}
+Object.defineProperty(window, 'localStorage', { value: mockLocalStorage })
 
 describe('New Session Page', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockFetch.mockClear()
+    mockFetch.mockResolvedValue({
+      json: () => Promise.resolve({
+        success: true,
+        data: { id: 'test-session-id' }
+      }),
+    })
   })
 
   describe('Layout', () => {
@@ -81,9 +98,9 @@ describe('New Session Page', () => {
       expect(allText).toMatch(/30 min/) // Build phase
     })
 
-    it('displays session timeline heading', () => {
+    it('displays builder timeline heading', () => {
       render(<NewSessionPage />)
-      expect(screen.getByText(/session timeline/i)).toBeInTheDocument()
+      expect(screen.getByText(/builder timeline/i)).toBeInTheDocument()
     })
 
     it('mentions 50 minutes total', () => {
@@ -107,7 +124,6 @@ describe('New Session Page', () => {
     })
 
     it('creates session when clicked', async () => {
-      const { createSession } = await import('@/lib/actions')
       const mockRouter = { push: vi.fn() }
       vi.mocked(useRouter).mockReturnValue(mockRouter as any)
 
@@ -117,15 +133,15 @@ describe('New Session Page', () => {
       fireEvent.click(button)
 
       await waitFor(() => {
-        expect(createSession).toHaveBeenCalledWith({
-          role: 'builder',
-          sessionTitle: 'Untitled Prototype',
+        expect(mockFetch).toHaveBeenCalledWith('/api/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'Untitled Prototype' }),
         })
       })
     })
 
     it('creates session with custom title when provided', async () => {
-      const { createSession } = await import('@/lib/actions')
       const mockRouter = { push: vi.fn() }
       vi.mocked(useRouter).mockReturnValue(mockRouter as any)
 
@@ -138,9 +154,10 @@ describe('New Session Page', () => {
       fireEvent.click(button)
 
       await waitFor(() => {
-        expect(createSession).toHaveBeenCalledWith({
-          role: 'builder',
-          sessionTitle: 'My Cool App',
+        expect(mockFetch).toHaveBeenCalledWith('/api/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'My Cool App' }),
         })
       })
     })
@@ -166,7 +183,7 @@ describe('New Session Page', () => {
       fireEvent.click(button)
 
       await waitFor(() => {
-        expect(screen.getByText(/starting/i)).toBeInTheDocument()
+        expect(screen.getByText(/creating session/i)).toBeInTheDocument()
       })
     })
   })

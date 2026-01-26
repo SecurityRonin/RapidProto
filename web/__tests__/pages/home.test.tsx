@@ -1,86 +1,107 @@
 /**
  * TDD: Landing Page Tests
- * Clean design with shadcn/ui components
+ * Dual-mode design with Builder and Facilitator role selection
  */
 
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import Home from '@/app/page'
 
-describe('Landing Page', () => {
+describe('Landing Page (Dual-Mode)', () => {
   describe('Hero Section', () => {
     it('renders the headline', () => {
       render(<Home />)
       const heading = screen.getByRole('heading', { level: 1 })
       expect(heading).toBeInTheDocument()
-      expect(heading.textContent).toMatch(/prototype|50 minutes/i)
+      expect(heading.textContent).toMatch(/prototype|together/i)
     })
 
-    it('renders the tagline', () => {
+    it('renders the tagline about synchronized teams', () => {
       render(<Home />)
       const allText = document.body.textContent || ''
-      expect(allText).toMatch(/stop overthinking|focused/i)
+      expect(allText).toMatch(/synchronized|builder|facilitator/i)
     })
 
-    it('renders the badge', () => {
+    it('renders the badge about sprint duration', () => {
       render(<Home />)
-      expect(screen.getByText(/solo developer/i)).toBeInTheDocument()
+      // Multiple elements mention 50-minute, check at least one exists
+      expect(screen.getAllByText(/50-minute/i).length).toBeGreaterThan(0)
     })
   })
 
-  describe('CTA Buttons', () => {
-    it('renders Start Session button linking to /session/new', () => {
+  describe('Role Selection Cards', () => {
+    it('renders Builder card with link to /session/new', () => {
       render(<Home />)
-      const ctas = screen.getAllByRole('link', { name: /start session/i })
-      expect(ctas.length).toBeGreaterThan(0)
-      expect(ctas[0]).toHaveAttribute('href', '/session/new')
+      const builderLink = screen.getByRole('link', { name: /start building/i })
+      expect(builderLink).toHaveAttribute('href', '/session/new')
     })
 
-    it('renders How it works button', () => {
+    it('renders Facilitator card with link to /join', () => {
       render(<Home />)
-      const howItWorks = screen.getByRole('link', { name: /how it works/i })
-      expect(howItWorks).toBeInTheDocument()
+      const facilitatorLink = screen.getByRole('link', { name: /join session/i })
+      expect(facilitatorLink).toHaveAttribute('href', '/join')
+    })
+
+    it('shows Builder role description', () => {
+      render(<Home />)
+      expect(screen.getByText(/start as builder/i)).toBeInTheDocument()
+    })
+
+    it('shows Facilitator role description', () => {
+      render(<Home />)
+      expect(screen.getByText(/join as facilitator/i)).toBeInTheDocument()
     })
   })
 
   describe('How it Works Section', () => {
-    it('shows the three phases', () => {
+    it('shows the three steps', () => {
       render(<Home />)
-      expect(screen.getByText('Discover')).toBeInTheDocument()
-      expect(screen.getByText('Build')).toBeInTheDocument()
-      expect(screen.getByText('Verify')).toBeInTheDocument()
-    })
-
-    it('shows phase durations', () => {
-      render(<Home />)
-      expect(screen.getAllByText('10 min')).toHaveLength(2) // Discover and Verify
-      expect(screen.getByText('30 min')).toBeInTheDocument()
+      expect(screen.getByText(/builder starts/i)).toBeInTheDocument()
+      expect(screen.getByText(/facilitator joins/i)).toBeInTheDocument()
+      expect(screen.getByText(/work in parallel/i)).toBeInTheDocument()
     })
 
     it('shows section heading', () => {
       render(<Home />)
-      expect(screen.getByText(/50-minute framework/i)).toBeInTheDocument()
+      expect(screen.getByText(/how it works/i)).toBeInTheDocument()
     })
   })
 
-  describe('Bottom CTA Section', () => {
-    it('renders secondary CTA card', () => {
+  describe('Timeline Section', () => {
+    it('shows the 50-minute sprint heading', () => {
       render(<Home />)
-      expect(screen.getByText(/ready to build/i)).toBeInTheDocument()
+      expect(screen.getByText(/50-minute sprint/i)).toBeInTheDocument()
+    })
+
+    it('shows builder phases', () => {
+      render(<Home />)
+      // Builder has Discovery, Build, Verify phases
+      expect(screen.getByText('Discovery')).toBeInTheDocument()
+      expect(screen.getByText('Build')).toBeInTheDocument()
+      expect(screen.getByText('Verify')).toBeInTheDocument()
+    })
+
+    it('shows builder label', () => {
+      render(<Home />)
+      expect(screen.getByText('BUILDER')).toBeInTheDocument()
+    })
+
+    it('shows facilitator label', () => {
+      render(<Home />)
+      expect(screen.getByText('FACILITATOR')).toBeInTheDocument()
     })
   })
 
   describe('Footer', () => {
     it('renders footer with brand name', () => {
       render(<Home />)
-      // Footer has RapidProto text
       const allText = document.body.textContent || ''
       expect(allText).toMatch(/rapidproto/i)
     })
 
-    it('shows tagline about builders', () => {
+    it('shows tagline about prototypes', () => {
       render(<Home />)
-      expect(screen.getByText(/built for builders/i)).toBeInTheDocument()
+      expect(screen.getByText(/50 minutes/i)).toBeInTheDocument()
     })
   })
 

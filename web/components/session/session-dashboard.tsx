@@ -18,14 +18,16 @@ import {
   resumeSession,
   advancePhase,
   completeSession,
-} from '@/lib/actions'
+} from '@/lib/client-actions'
 import { SessionProvider, useSession, useSessionTimer, useCurrentPhase } from '@/hooks/use-session'
-import { useAction } from '@/hooks/use-action'
 import { StepChecklist } from './step-checklist'
 import { cn } from '@/lib/utils'
 
+type Role = 'builder' | 'facilitator'
+
 interface SessionDashboardProps {
   sessionId: string
+  role?: Role
 }
 
 function formatTime(minutes: number): string {
@@ -34,41 +36,35 @@ function formatTime(minutes: number): string {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
-function SessionDashboardContent({ sessionId }: { sessionId: string }) {
+function SessionDashboardContent({ sessionId, role = 'builder' }: { sessionId: string; role: Role }) {
   const { session, loading, error, refresh } = useSession()
+  const isBuilder = role === 'builder'
+  const isFacilitator = role === 'facilitator'
   const timeRemaining = useSessionTimer()
   const currentPhase = useCurrentPhase()
   const [mounted, setMounted] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [isPending, setIsPending] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
-  const pauseAction = useAction(
-    () => pauseSession(sessionId),
-    { onSuccess: () => refresh() }
-  )
-
-  const resumeAction = useAction(
-    () => resumeSession(sessionId),
-    { onSuccess: () => refresh() }
-  )
-
-  const advanceAction = useAction(
-    () => advancePhase(sessionId),
-    { onSuccess: () => refresh() }
-  )
-
-  const completeAction = useAction(
-    () => completeSession(sessionId),
-    { onSuccess: () => refresh() }
-  )
-
-  const isActionPending =
-    pauseAction.isPending ||
-    resumeAction.isPending ||
-    advanceAction.isPending ||
-    completeAction.isPending
+  const executeAction = (action: () => { success: boolean; error?: string }) => {
+    setIsPending(true)
+    setActionError(null)
+    try {
+      const result = action()
+      if (!result.success && 'error' in result) {
+        setActionError(result.error || 'Action failed')
+      }
+      refresh()
+    } catch (err) {
+      setActionError('Something went wrong')
+    } finally {
+      setIsPending(false)
+    }
+  }
 
   if (loading || !mounted) {
     return (
@@ -111,6 +107,18 @@ function SessionDashboardContent({ sessionId }: { sessionId: string }) {
           </Button>
 
           <div className="flex items-center gap-3">
+            {/* Session Code (for builder to share) */}
+            {isBuilder && (
+              <Badge variant="outline" className="font-mono text-xs">
+                {sessionId.toUpperCase().slice(0, 6)}
+              </Badge>
+            )}
+            {/* Role indicator for facilitator */}
+            {isFacilitator && (
+              <Badge variant="secondary" className="text-xs">
+                Facilitator
+              </Badge>
+            )}
             {session.session.sessionTitle && (
               <span className="text-sm text-muted-foreground hidden sm:block">
                 {session.session.sessionTitle}
@@ -134,9 +142,6 @@ function SessionDashboardContent({ sessionId }: { sessionId: string }) {
                 <Badge variant="outline" className="uppercase tracking-widest text-xs">
                   {phase}
                 </Badge>
-                <span className="text-xs text-muted-foreground">
-                  {session.session.role === 'builder' ? 'Builder' : 'Facilitator'}
-                </span>
               </div>
 
               {/* Timer Display */}
@@ -169,32 +174,63 @@ function SessionDashboardContent({ sessionId }: { sessionId: string }) {
 
               {/* Phase Indicators */}
               <div className="flex items-center justify-center gap-4 pt-2">
-                {(['discovery', 'build', 'demo'] as const).map((p, index) => {
-                  const isCurrentPhase = phase === p
-                  const isCompletedPhase =
-                    (p === 'discovery' && ['build', 'demo'].includes(phase)) ||
-                    (p === 'build' && phase === 'demo')
+                {isBuilder ? (
+                  // Builder phases: Discovery → Build → Verify
+                  (['discovery', 'build', 'demo'] as const).map((p, index) => {
+                    const isCurrentPhase = phase === p
+                    const isCompletedPhase =
+                      (p === 'discovery' && ['build', 'demo'].includes(phase)) ||
+                      (p === 'build' && phase === 'demo')
 
-                  return (
-                    <div key={p} className="flex items-center gap-3">
-                      {index > 0 && <Separator className="w-6" />}
-                      <div className="flex items-center gap-2">
-                        <div className={cn(
-                          'w-2.5 h-2.5 rounded-full transition-all',
-                          isCompletedPhase && 'bg-primary',
-                          isCurrentPhase && 'bg-primary ring-4 ring-primary/20',
-                          !isCurrentPhase && !isCompletedPhase && 'bg-muted'
-                        )} />
-                        <span className={cn(
-                          'text-sm capitalize',
-                          isCurrentPhase ? 'font-medium' : 'text-muted-foreground'
-                        )}>
-                          {p}
-                        </span>
+                    return (
+                      <div key={p} className="flex items-center gap-3">
+                        {index > 0 && <Separator className="w-6" />}
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            'w-2.5 h-2.5 rounded-full transition-all',
+                            isCompletedPhase && 'bg-primary',
+                            isCurrentPhase && 'bg-primary ring-4 ring-primary/20',
+                            !isCurrentPhase && !isCompletedPhase && 'bg-muted'
+                          )} />
+                          <span className={cn(
+                            'text-sm capitalize',
+                            isCurrentPhase ? 'font-medium' : 'text-muted-foreground'
+                          )}>
+                            {p === 'demo' ? 'verify' : p}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })
+                ) : (
+                  // Facilitator stages: Expectations → Long Term → Close
+                  (['expectations', 'longterm', 'close'] as const).map((s, index) => {
+                    // Facilitator is active during builder's Build phase
+                    const isBuildPhase = phase === 'build'
+                    const isCurrentStage = isBuildPhase && index === 0 // Default to first stage
+                    const isCompletedStage = false // TODO: track facilitator progress
+
+                    return (
+                      <div key={s} className="flex items-center gap-3">
+                        {index > 0 && <Separator className="w-6" />}
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            'w-2.5 h-2.5 rounded-full transition-all',
+                            isCompletedStage && 'bg-primary',
+                            isCurrentStage && 'bg-primary ring-4 ring-primary/20',
+                            !isCurrentStage && !isCompletedStage && 'bg-muted'
+                          )} />
+                          <span className={cn(
+                            'text-sm',
+                            isCurrentStage ? 'font-medium' : 'text-muted-foreground'
+                          )}>
+                            {s === 'longterm' ? 'Long Term' : s === 'expectations' ? 'Expectations' : 'Close'}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
               </div>
             </CardContent>
           </Card>
@@ -206,41 +242,41 @@ function SessionDashboardContent({ sessionId }: { sessionId: string }) {
                 <Button
                   variant="outline"
                   size="lg"
-                  onClick={() => pauseAction.execute()}
-                  disabled={isActionPending}
+                  onClick={() => executeAction(() => pauseSession(sessionId))}
+                  disabled={isPending}
                 >
-                  {pauseAction.isPending ? (
+                  {isPending ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
                     <Pause className="w-4 h-4 mr-2" />
                   )}
-                  {pauseAction.isPending ? 'Pausing...' : 'Pause'}
+                  Pause
                 </Button>
               )}
 
               {isPaused && (
                 <Button
                   size="lg"
-                  onClick={() => resumeAction.execute()}
-                  disabled={isActionPending}
+                  onClick={() => executeAction(() => resumeSession(sessionId))}
+                  disabled={isPending}
                 >
-                  {resumeAction.isPending ? (
+                  {isPending ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
                     <Play className="w-4 h-4 mr-2" />
                   )}
-                  {resumeAction.isPending ? 'Resuming...' : 'Resume'}
+                  Resume
                 </Button>
               )}
 
               {isActive && phase !== 'demo' && (
                 <Button
                   size="lg"
-                  onClick={() => advanceAction.execute()}
-                  disabled={isActionPending}
+                  onClick={() => executeAction(() => advancePhase(sessionId))}
+                  disabled={isPending}
                 >
-                  {advanceAction.isPending ? 'Advancing...' : phase === 'discovery' ? 'Start Build' : 'Start Demo'}
-                  {advanceAction.isPending ? (
+                  {phase === 'discovery' ? 'Start Build' : 'Start Verify'}
+                  {isPending ? (
                     <Loader2 className="w-4 h-4 ml-2 animate-spin" />
                   ) : (
                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -251,27 +287,50 @@ function SessionDashboardContent({ sessionId }: { sessionId: string }) {
               {isActive && phase === 'demo' && (
                 <Button
                   size="lg"
-                  onClick={() => completeAction.execute()}
-                  disabled={isActionPending}
+                  onClick={() => executeAction(() => completeSession(sessionId))}
+                  disabled={isPending}
                 >
-                  {completeAction.isPending ? (
+                  {isPending ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
                     <CheckCircle className="w-4 h-4 mr-2" />
                   )}
-                  {completeAction.isPending ? 'Completing...' : 'Complete'}
+                  Complete
                 </Button>
               )}
             </div>
           )}
 
           {/* Error Display */}
-          {(pauseAction.error || resumeAction.error || advanceAction.error || completeAction.error) && (
+          {actionError && (
             <Card className="border-destructive bg-destructive/5">
               <CardContent className="py-4 text-center">
-                <p className="text-sm text-destructive">
-                  {pauseAction.error || resumeAction.error || advanceAction.error || completeAction.error}
-                </p>
+                <p className="text-sm text-destructive">{actionError}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Synced Inputs from Other Role (Facilitator sees Builder's discoveries) */}
+          {isFacilitator && (session.session as any).syncedInputs && (
+            <Card className="bg-muted/50">
+              <CardContent className="p-6">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">
+                  From Builder
+                </h3>
+                <div className="space-y-3">
+                  {(session.session as any).syncedInputs.coreFeature && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Core Feature</p>
+                      <p className="font-medium">{(session.session as any).syncedInputs.coreFeature}</p>
+                    </div>
+                  )}
+                  {(session.session as any).syncedInputs.template && (
+                    <div>
+                      <p className="text-xs text-muted-foreground">Template</p>
+                      <p className="font-medium">{(session.session as any).syncedInputs.template}</p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}
@@ -279,12 +338,12 @@ function SessionDashboardContent({ sessionId }: { sessionId: string }) {
           {/* Step Checklist */}
           <div className="space-y-4">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest">
-              {phase} Steps
+              {isBuilder ? (phase === 'demo' ? 'Verify' : phase) : 'Current Stage'} Steps
             </h2>
             {session.session.steps && (
               <StepChecklist
                 steps={session.session.steps}
-                currentPhase={phase}
+                currentPhase={isBuilder ? phase : 'expectations'}
               />
             )}
           </div>
@@ -301,7 +360,7 @@ function SessionDashboardContent({ sessionId }: { sessionId: string }) {
                 </div>
                 <div>
                   <div className="text-2xl font-semibold capitalize">
-                    {phase}
+                    {phase === 'demo' ? 'Verify' : phase}
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">Phase</div>
                 </div>
@@ -320,10 +379,10 @@ function SessionDashboardContent({ sessionId }: { sessionId: string }) {
   )
 }
 
-export function SessionDashboard({ sessionId }: SessionDashboardProps) {
+export function SessionDashboard({ sessionId, role = 'builder' }: SessionDashboardProps) {
   return (
     <SessionProvider sessionId={sessionId}>
-      <SessionDashboardContent sessionId={sessionId} />
+      <SessionDashboardContent sessionId={sessionId} role={role} />
     </SessionProvider>
   )
 }

@@ -7,8 +7,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { StepChecklist } from '../../components/session/step-checklist'
 
-vi.mock('@/lib/actions', () => ({
-  updateStep: vi.fn(() => Promise.resolve({ success: true })),
+vi.mock('@/lib/client-actions', () => ({
+  updateStep: vi.fn(() => ({ success: true })),
 }))
 
 describe('StepChecklist', () => {
@@ -21,11 +21,13 @@ describe('StepChecklist', () => {
       description: 'Read through facilitator notes',
       estimatedMinutes: 3,
       status: 'completed' as const,
+      role: 'builder' as const,
       timeSpent: 180,
       sessionId: 'session_1',
       startedAt: new Date(),
       completedAt: new Date(),
       notes: null,
+      acquiredValue: null,
       createdAt: new Date(),
     },
     {
@@ -36,11 +38,13 @@ describe('StepChecklist', () => {
       description: 'Choose best-fit template',
       estimatedMinutes: 4,
       status: 'in_progress' as const,
+      role: 'builder' as const,
       timeSpent: null,
       sessionId: 'session_1',
       startedAt: new Date(),
       completedAt: null,
       notes: null,
+      acquiredValue: null,
       createdAt: new Date(),
     },
     {
@@ -51,11 +55,13 @@ describe('StepChecklist', () => {
       description: 'Note required changes',
       estimatedMinutes: 3,
       status: 'pending' as const,
+      role: 'builder' as const,
       timeSpent: null,
       sessionId: 'session_1',
       startedAt: null,
       completedAt: null,
       notes: null,
+      acquiredValue: null,
       createdAt: new Date(),
     },
   ]
@@ -129,7 +135,7 @@ describe('StepChecklist', () => {
 
   describe('Step Actions', () => {
     it('should toggle step status when checkbox clicked', async () => {
-      const { updateStep } = await import('@/lib/actions')
+      const { updateStep } = await import('@/lib/client-actions')
 
       render(<StepChecklist steps={mockSteps} currentPhase="discovery" />)
 
@@ -146,7 +152,7 @@ describe('StepChecklist', () => {
     })
 
     it('should allow unchecking completed steps', async () => {
-      const { updateStep } = await import('@/lib/actions')
+      const { updateStep } = await import('@/lib/client-actions')
 
       render(<StepChecklist steps={mockSteps} currentPhase="discovery" />)
 
@@ -173,11 +179,13 @@ describe('StepChecklist', () => {
         description: 'Set up project from template',
         estimatedMinutes: 5,
         status: 'pending' as const,
+        role: 'builder' as const,
         timeSpent: null,
         sessionId: 'session_1',
         startedAt: null,
         completedAt: null,
         notes: null,
+        acquiredValue: null,
         createdAt: new Date(),
       },
     ]
@@ -232,7 +240,7 @@ describe('StepChecklist', () => {
     })
 
     it('should save notes when submitted', async () => {
-      const { updateStep } = await import('@/lib/actions')
+      const { updateStep } = await import('@/lib/client-actions')
 
       render(<StepChecklist steps={mockSteps} currentPhase="discovery" />)
 
@@ -257,15 +265,146 @@ describe('StepChecklist', () => {
       const textarea = screen.getByPlaceholderText(/add notes/i)
       fireEvent.change(textarea, { target: { value: 'Client prefers Template #14' } })
 
-      // Save
-      const saveButton = screen.getByRole('button', { name: /save/i })
-      fireEvent.click(saveButton)
+      // Save notes (not "Save Answer")
+      const saveButtons = screen.getAllByRole('button', { name: /^save$/i })
+      fireEvent.click(saveButtons[0])
 
       await waitFor(() => {
         expect(updateStep).toHaveBeenCalledWith('step_2', {
           notes: 'Client prefers Template #14'
         })
       })
+    })
+  })
+
+  describe('Acquired Value Input (Bidirectional Sync)', () => {
+    const builderSteps = [
+      {
+        id: 'step_1',
+        phase: 'discovery' as const,
+        stepNumber: 1,
+        title: 'Define the core feature',
+        description: 'What is the ONE thing this prototype must do?',
+        estimatedMinutes: 3,
+        status: 'pending' as const,
+        role: 'builder' as const,
+        timeSpent: null,
+        sessionId: 'session_1',
+        startedAt: null,
+        completedAt: null,
+        notes: null,
+        acquiredValue: null,
+        createdAt: new Date(),
+      },
+      {
+        id: 'step_2',
+        phase: 'discovery' as const,
+        stepNumber: 2,
+        title: 'Pick a template',
+        description: 'Choose a starting point',
+        estimatedMinutes: 4,
+        status: 'pending' as const,
+        role: 'builder' as const,
+        timeSpent: null,
+        sessionId: 'session_1',
+        startedAt: null,
+        completedAt: null,
+        notes: null,
+        acquiredValue: 'Next.js SaaS starter',
+        createdAt: new Date(),
+      },
+    ]
+
+    it('should show answer input when builder step is expanded', async () => {
+      render(<StepChecklist steps={builderSteps} currentPhase="discovery" />)
+
+      // Expand step 1
+      const step1 = screen.getByTestId('step-step_1')
+      const titleArea = step1.querySelector('[class*="cursor-pointer"]')
+      fireEvent.click(titleArea || step1)
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText(/your answer/i)).toBeInTheDocument()
+      })
+    })
+
+    it('should display existing acquiredValue in input', async () => {
+      render(<StepChecklist steps={builderSteps} currentPhase="discovery" />)
+
+      // Expand step 2 which has an existing acquiredValue
+      const step2 = screen.getByTestId('step-step_2')
+      const titleArea = step2.querySelector('[class*="cursor-pointer"]')
+      fireEvent.click(titleArea || step2)
+
+      await waitFor(() => {
+        const input = screen.getByDisplayValue('Next.js SaaS starter')
+        expect(input).toBeInTheDocument()
+      })
+    })
+
+    it('should save acquiredValue when submitted', async () => {
+      const { updateStep } = await import('@/lib/client-actions')
+
+      render(<StepChecklist steps={builderSteps} currentPhase="discovery" />)
+
+      // Expand step 1
+      const step1 = screen.getByTestId('step-step_1')
+      const titleArea = step1.querySelector('[class*="cursor-pointer"]')
+      fireEvent.click(titleArea || step1)
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText(/your answer/i)).toBeInTheDocument()
+      })
+
+      // Type answer
+      const input = screen.getByPlaceholderText(/your answer/i)
+      fireEvent.change(input, { target: { value: 'User login with OAuth' } })
+
+      // Save
+      const saveButton = screen.getByRole('button', { name: /save answer/i })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(updateStep).toHaveBeenCalledWith('step_1', {
+          acquiredValue: 'User login with OAuth'
+        })
+      })
+    })
+
+    it('should not show answer input for facilitator steps', async () => {
+      const facilitatorSteps = [
+        {
+          id: 'fac_1',
+          phase: 'expectations' as const,
+          stepNumber: 1,
+          title: 'Define prototype scope',
+          description: 'Today\'s demo will show...',
+          estimatedMinutes: 3,
+          status: 'pending' as const,
+          role: 'facilitator' as const,
+          timeSpent: null,
+          sessionId: 'session_1',
+          startedAt: null,
+          completedAt: null,
+          notes: null,
+          acquiredValue: null,
+          createdAt: new Date(),
+        },
+      ]
+
+      render(<StepChecklist steps={facilitatorSteps} currentPhase="expectations" />)
+
+      // Expand facilitator step
+      const step = screen.getByTestId('step-fac_1')
+      const titleArea = step.querySelector('[class*="cursor-pointer"]')
+      fireEvent.click(titleArea || step)
+
+      await waitFor(() => {
+        expect(screen.getByText(/today's demo will show/i)).toBeInTheDocument()
+      })
+
+      // Should NOT have answer input for facilitator
+      expect(screen.queryByPlaceholderText(/your answer/i)).not.toBeInTheDocument()
     })
   })
 

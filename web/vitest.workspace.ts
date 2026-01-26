@@ -7,7 +7,7 @@ export default defineWorkspace([
     test: {
       name: 'actions',
       environment: 'node',
-      include: ['__tests__/lib/**/*.test.ts', '__tests__/types/**/*.test.ts'],
+      include: ['__tests__/lib/**/*.test.ts', '__tests__/types/**/*.test.ts', '__tests__/api/**/*.test.ts'],
       exclude: ['node_modules/**'],
       globals: true,
       setupFiles: ['./test/setup-node.ts'],

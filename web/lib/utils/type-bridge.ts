@@ -2,11 +2,13 @@
  * Type Bridge Utilities
  * Safely converts between different phase type systems
  *
- * Session phases ('discovery' | 'build' | 'demo') are user-facing time blocks
+ * Session phases:
+ *   - Builder: ('discovery' | 'build' | 'demo') are user-facing time blocks
+ *   - Facilitator: ('expectations' | 'longterm' | 'close') are internal to build phase
  * Builder phases ('setup' | 'customize' | 'implement' | 'test' | 'deploy') are technical workflow stages
  */
 
-import type { Phase } from '@/types/actions'
+import type { BuilderPhase } from '@/types/actions'
 import type { BuildPhase } from '@/lib/builder'
 
 /**
@@ -15,7 +17,7 @@ import type { BuildPhase } from '@/lib/builder'
  * - build: Main implementation phase
  * - demo: Final deployment for presentation
  */
-const SESSION_TO_BUILD: Record<Phase, BuildPhase> = {
+const SESSION_TO_BUILD: Record<BuilderPhase, BuildPhase> = {
   discovery: 'setup',
   build: 'implement',
   demo: 'deploy',
@@ -26,14 +28,14 @@ const SESSION_TO_BUILD: Record<Phase, BuildPhase> = {
  * @param phase - The session phase ('discovery' | 'build' | 'demo')
  * @returns The corresponding builder phase
  */
-export function toBuilderPhase(phase: Phase): BuildPhase {
+export function toBuilderPhase(phase: BuilderPhase): BuildPhase {
   return SESSION_TO_BUILD[phase]
 }
 
 /**
  * Maps builder phases back to session phases (for reverse lookups)
  */
-const BUILD_TO_SESSION: Partial<Record<BuildPhase, Phase>> = {
+const BUILD_TO_SESSION: Partial<Record<BuildPhase, BuilderPhase>> = {
   setup: 'discovery',
   customize: 'build',
   implement: 'build',
@@ -46,6 +48,6 @@ const BUILD_TO_SESSION: Partial<Record<BuildPhase, Phase>> = {
  * @param phase - The builder phase
  * @returns The corresponding session phase (or undefined if not mappable)
  */
-export function toSessionPhase(phase: BuildPhase): Phase | undefined {
+export function toSessionPhase(phase: BuildPhase): BuilderPhase | undefined {
   return BUILD_TO_SESSION[phase]
 }

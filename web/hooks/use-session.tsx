@@ -9,9 +9,26 @@ import {
   useRef,
   type ReactNode,
 } from 'react'
-import { getSessionStatus } from '@/lib/actions'
-import type { SessionStatusData, ClientInfoParsed, ClientInfoRaw, TimeRemaining } from '@/types/actions'
-import { parseStringArray } from '@/lib/utils/json-fields'
+import { getSessionStatus } from '@/lib/client-actions'
+import type { Session, Phase } from '@/lib/store'
+
+// Simplified types for localStorage-based sessions
+export interface TimeRemaining {
+  phase: Phase
+  totalMinutes: number
+  elapsedMinutes: number
+  remainingMinutes: number
+  isOvertime: boolean
+  overtimeMinutes: number
+}
+
+export interface SessionStatusData {
+  session: Session
+  currentPhase: Phase
+  timeRemaining: TimeRemaining
+  stepsCompleted: number
+  stepsTotal: number
+}
 
 interface SessionContextValue {
   // Data
@@ -20,7 +37,7 @@ interface SessionContextValue {
   error: string | null
 
   // Actions
-  refresh: () => Promise<void>
+  refresh: () => void
   setOptimistic: <K extends keyof SessionStatusData>(
     key: K,
     updater: (prev: SessionStatusData[K]) => SessionStatusData[K]
@@ -36,13 +53,13 @@ const SessionContext = createContext<SessionContextValue | null>(null)
 interface SessionProviderProps {
   sessionId: string
   children: ReactNode
-  pollInterval?: number // Default 5000ms
+  pollInterval?: number // Default 1000ms for timer updates
 }
 
 export function SessionProvider({
   sessionId,
   children,
-  pollInterval = 5000,
+  pollInterval = 1000,
 }: SessionProviderProps) {
   const [session, setSession] = useState<SessionStatusData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -52,9 +69,9 @@ export function SessionProvider({
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   const isMountedRef = useRef(true)
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(() => {
     try {
-      const result = await getSessionStatus(sessionId)
+      const result = getSessionStatus(sessionId)
 
       if (!isMountedRef.current) return
 
@@ -150,21 +167,6 @@ export function useSessionTimer(): TimeRemaining | null {
 export function useSessionSteps() {
   const { session } = useSession()
   return session?.session.steps ?? []
-}
-
-export function useClientInfo(): ClientInfoParsed | null {
-  const { session } = useSession()
-  const raw = session?.clientInfo
-  if (!raw) return null
-
-  // Parse JSON fields from raw database format
-  return {
-    ...raw,
-    threeWins: parseStringArray(raw.threeWins),
-    painPoints: parseStringArray(raw.painPoints),
-    mustHaveFeatures: parseStringArray(raw.mustHaveFeatures),
-    niceToHaveFeatures: parseStringArray(raw.niceToHaveFeatures),
-  } as ClientInfoParsed
 }
 
 export function useCurrentPhase() {

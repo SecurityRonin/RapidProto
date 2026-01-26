@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { createSession } from '@/lib/actions'
-import { ArrowLeft, ArrowRight, Timer, Layers, Rocket, Loader2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Timer, Layers, Rocket, Loader2, Code2 } from 'lucide-react'
 
 export default function NewSessionPage() {
   const router = useRouter()
@@ -19,15 +18,22 @@ export default function NewSessionPage() {
   const handleStartSession = async () => {
     setIsStarting(true)
     setError(null)
+
     try {
-      const result = await createSession({
-        role: 'builder',
-        sessionTitle: projectName || 'Untitled Prototype',
+      const response = await fetch('/api/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: projectName || 'Untitled Prototype' }),
       })
+
+      const result = await response.json()
+
       if (result.success && result.data) {
+        // Store role in localStorage for this session
+        localStorage.setItem(`rapidproto_role_${result.data.id}`, 'builder')
         router.push(`/session/${result.data.id}`)
       } else {
-        setError('error' in result ? result.error : 'Failed to create session')
+        setError(result.error || 'Failed to create session')
         setIsStarting(false)
       }
     } catch (err) {
@@ -48,8 +54,11 @@ export default function NewSessionPage() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-2xl font-semibold">New Session</h1>
-            <p className="text-sm text-muted-foreground">Start your 50-minute prototype sprint</p>
+            <div className="flex items-center gap-2">
+              <Code2 className="w-5 h-5 text-primary" />
+              <h1 className="text-2xl font-semibold">New Session</h1>
+            </div>
+            <p className="text-sm text-muted-foreground">Start your 50-minute prototype sprint as builder</p>
           </div>
         </div>
 
@@ -58,7 +67,7 @@ export default function NewSessionPage() {
           <CardHeader>
             <CardTitle className="text-lg">What are you building?</CardTitle>
             <CardDescription>
-              Give your prototype a name. You can always change this later.
+              Give your prototype a name. Your facilitator will see this too.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -75,7 +84,7 @@ export default function NewSessionPage() {
         {/* Session Overview */}
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle className="text-lg">Session Timeline</CardTitle>
+            <CardTitle className="text-lg">Builder Timeline</CardTitle>
             <CardDescription>
               50 minutes of focused building, broken into 3 phases
             </CardDescription>
@@ -103,6 +112,16 @@ export default function NewSessionPage() {
           </CardContent>
         </Card>
 
+        {/* Facilitator Info */}
+        <Card className="mb-8 bg-muted/50">
+          <CardContent className="py-4">
+            <p className="text-sm text-muted-foreground text-center">
+              After starting, you'll get a <strong>6-character code</strong> to share with your facilitator.
+              They can join at any time during the session.
+            </p>
+          </CardContent>
+        </Card>
+
         {/* Error Display */}
         {error && (
           <Card className="mb-8 border-destructive bg-destructive/5">
@@ -123,7 +142,7 @@ export default function NewSessionPage() {
             {isStarting ? (
               <>
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Starting...
+                Creating session...
               </>
             ) : (
               <>

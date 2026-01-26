@@ -16,18 +16,23 @@ describe('Session Assistant Schema', () => {
   describe('Sessions Table', () => {
     it('should have required session fields', () => {
       expect(sessions.id).toBeDefined()
-      expect(sessions.role).toBeDefined() // 'builder' or 'facilitator'
       expect(sessions.status).toBeDefined() // 'active', 'paused', 'completed'
       expect(sessions.startedAt).toBeDefined()
       expect(sessions.currentPhase).toBeDefined() // 'discovery', 'build', 'demo'
+      // Dual-mode: track which roles have joined
+      expect(sessions.builderJoined).toBeDefined()
+      expect(sessions.facilitatorJoined).toBeDefined()
     })
 
-    it('should support both builder and facilitator roles', () => {
-      const validRoles = ['builder', 'facilitator']
-      validRoles.forEach(role => {
-        const mockSession = { role }
-        expect(['builder', 'facilitator']).toContain(mockSession.role)
-      })
+    it('should support both builder and facilitator roles via join flags', () => {
+      // In dual-mode, sessions don't have a single role
+      // Instead, builderJoined and facilitatorJoined track participation
+      const mockSession = {
+        builderJoined: true,
+        facilitatorJoined: false, // starts false, set to true when facilitator joins
+      }
+      expect(mockSession.builderJoined).toBe(true)
+      expect(mockSession.facilitatorJoined).toBe(false)
     })
 
     it('should track session timing', () => {
@@ -50,10 +55,12 @@ describe('Session Assistant Schema', () => {
     it('should track individual steps within each phase', () => {
       expect(sessionSteps.id).toBeDefined()
       expect(sessionSteps.sessionId).toBeDefined()
-      expect(sessionSteps.phase).toBeDefined() // 'discovery', 'build', 'demo'
+      expect(sessionSteps.role).toBeDefined() // 'builder' or 'facilitator' - role is on steps now
+      expect(sessionSteps.phase).toBeDefined() // builder: 'discovery'/'build'/'demo', facilitator: 'expectations'/'longterm'/'close'
       expect(sessionSteps.stepNumber).toBeDefined()
       expect(sessionSteps.title).toBeDefined()
       expect(sessionSteps.status).toBeDefined() // 'pending', 'in_progress', 'completed', 'skipped'
+      expect(sessionSteps.acquiredValue).toBeDefined() // synced input value
     })
 
     it('should support step completion tracking', () => {

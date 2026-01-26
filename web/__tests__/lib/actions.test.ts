@@ -35,15 +35,16 @@ describe('Session Assistant Actions', () => {
   })
 
   describe('createSession', () => {
-    it('should create a builder session with default durations', async () => {
+    it('should create a session with default durations (dual-mode)', async () => {
       const result = await createSession({
-        role: 'builder',
         sessionTitle: 'Test Client - Invoice Generator',
       })
 
       expect(result.success).toBe(true)
       expect(result.data).toBeDefined()
-      expect(result.data.role).toBe('builder')
+      // Dual-mode: sessions don't have role, they have join flags
+      expect(result.data.builderJoined).toBe(true)
+      expect(result.data.facilitatorJoined).toBe(false)
       expect(result.data.status).toBe('active')
       expect(result.data.currentPhase).toBe('discovery')
       expect(result.data.discoveryDuration).toBe(10)
@@ -51,18 +52,17 @@ describe('Session Assistant Actions', () => {
       expect(result.data.demoDuration).toBe(10)
     })
 
-    it('should create a facilitator session', async () => {
-      const result = await createSession({
-        role: 'facilitator',
-      })
+    it('should create session with builder already joined', async () => {
+      const result = await createSession({})
 
       expect(result.success).toBe(true)
-      expect(result.data.role).toBe('facilitator')
+      // Builder creates the session, so they're automatically joined
+      expect(result.data.builderJoined).toBe(true)
+      expect(result.data.facilitatorJoined).toBe(false)
     })
 
     it('should allow custom phase durations', async () => {
       const result = await createSession({
-        role: 'builder',
         discoveryDuration: 15,
         buildDuration: 25,
         demoDuration: 10,
@@ -73,12 +73,16 @@ describe('Session Assistant Actions', () => {
       expect(result.data.buildDuration).toBe(25)
     })
 
-    it('should initialize session steps for builder role', async () => {
-      const result = await createSession({ role: 'builder' })
+    it('should initialize builder steps on session creation', async () => {
+      const result = await createSession({})
 
       expect(result.success).toBe(true)
       expect(result.data.steps).toBeDefined()
       expect(result.data.steps.length).toBeGreaterThan(0)
+
+      // All steps should be for builder role
+      const roles = [...new Set(result.data.steps.map((s: any) => s.role))]
+      expect(roles).toEqual(['builder'])
 
       // Builder should have specific phases
       const phases = [...new Set(result.data.steps.map((s: any) => s.phase))]
@@ -87,12 +91,13 @@ describe('Session Assistant Actions', () => {
       expect(phases).toContain('demo')
     })
 
-    it('should initialize session steps for facilitator role', async () => {
-      const result = await createSession({ role: 'facilitator' })
+    it('should not create facilitator steps initially (they join later)', async () => {
+      const result = await createSession({})
 
       expect(result.success).toBe(true)
-      expect(result.data.steps).toBeDefined()
-      expect(result.data.steps.length).toBeGreaterThan(0)
+      // Only builder steps exist at creation time
+      const facilitatorSteps = result.data.steps.filter((s: any) => s.role === 'facilitator')
+      expect(facilitatorSteps.length).toBe(0)
     })
 
     it('should require authentication', async () => {

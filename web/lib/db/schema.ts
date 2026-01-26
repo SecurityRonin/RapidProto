@@ -1,31 +1,30 @@
 /**
- * Template #0: RapidProto Session Assistant
- * Database schema - implemented to pass TDD tests
+ * RapidProto Session Database Schema
+ * Dual-mode support: Builder and Facilitator working together
  *
- * Guides Builder and Facilitator through the 50-minute process
- * with real-time tracking and countdown timers
+ * Session codes are 6-character alphanumeric IDs for easy sharing
+ * Both roles see the same timer, different checklists
  */
 
-import { sqliteTable, text, integer, real } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
 
 // Main sessions table
 export const sessions = sqliteTable('sessions', {
-  id: text('id').primaryKey(),
-  role: text('role', { enum: ['builder', 'facilitator'] }).notNull(),
+  id: text('id').primaryKey(), // 6-char session code (e.g., 'ABC123')
   status: text('status', { enum: ['active', 'paused', 'completed'] })
     .notNull()
     .default('active'),
 
-  // Phase tracking
+  // Phase tracking (builder's phases - facilitator has internal sub-phases)
   currentPhase: text('current_phase', { enum: ['discovery', 'build', 'demo'] })
     .notNull()
     .default('discovery'),
   phaseStartedAt: integer('phase_started_at', { mode: 'timestamp' }).notNull(),
 
-  // Phase durations (customizable per session)
-  discoveryDuration: integer('discovery_duration').notNull().default(10), // minutes
-  buildDuration: integer('build_duration').notNull().default(30), // minutes
-  demoDuration: integer('demo_duration').notNull().default(10), // minutes
+  // Phase durations (minutes)
+  discoveryDuration: integer('discovery_duration').notNull().default(10),
+  buildDuration: integer('build_duration').notNull().default(30),
+  demoDuration: integer('demo_duration').notNull().default(10),
 
   // Timer tracking
   startedAt: integer('started_at', { mode: 'timestamp' }).notNull(),
@@ -34,26 +33,41 @@ export const sessions = sqliteTable('sessions', {
   totalPausedTime: integer('total_paused_time').notNull().default(0), // milliseconds
 
   // Session metadata
-  userId: text('user_id').notNull(), // Clerk user ID
-  teamId: text('team_id'), // For team sessions
+  userId: text('user_id'), // Optional - for authenticated sessions
   sessionTitle: text('session_title'),
+
+  // Dual-mode: track which roles have joined
+  builderJoined: integer('builder_joined', { mode: 'boolean' }).notNull().default(true),
+  facilitatorJoined: integer('facilitator_joined', { mode: 'boolean' }).notNull().default(false),
+
+  // TTL
+  expiresAt: integer('expires_at', { mode: 'timestamp' }), // 24h from creation
 
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 })
 
 // Individual steps within each phase
+// Role-specific: builder has discovery/build/demo phases
+// Facilitator has expectations/longterm/close phases (during builder's build)
 export const sessionSteps = sqliteTable('session_steps', {
   id: text('id').primaryKey(),
   sessionId: text('session_id')
     .notNull()
     .references(() => sessions.id, { onDelete: 'cascade' }),
 
-  phase: text('phase', { enum: ['discovery', 'build', 'demo'] }).notNull(),
-  stepNumber: integer('step_number').notNull(), // Order within phase
+  // Role determines which checklist this step belongs to
+  role: text('role', { enum: ['builder', 'facilitator'] }).notNull(),
+
+  // Phase - builder uses discovery/build/demo
+  // Facilitator uses expectations/longterm/close (maps to builder's build phase)
+  phase: text('phase', {
+    enum: ['discovery', 'build', 'demo', 'expectations', 'longterm', 'close'],
+  }).notNull(),
+  stepNumber: integer('step_number').notNull(),
   title: text('title').notNull(),
   description: text('description'),
-  estimatedMinutes: integer('estimated_minutes'), // Expected duration
+  estimatedMinutes: integer('estimated_minutes'),
 
   status: text('status', {
     enum: ['pending', 'in_progress', 'completed', 'skipped'],
@@ -61,51 +75,49 @@ export const sessionSteps = sqliteTable('session_steps', {
     .notNull()
     .default('pending'),
 
+  // Acquired value - the input/answer captured for this step
+  // This syncs to the other role's view
+  acquiredValue: text('acquired_value'),
+
   startedAt: integer('started_at', { mode: 'timestamp' }),
   completedAt: integer('completed_at', { mode: 'timestamp' }),
   timeSpent: integer('time_spent'), // seconds
 
-  notes: text('notes'), // Step-specific notes
+  notes: text('notes'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 })
 
-// Client information captured during discovery
+// Client information captured during discovery (optional)
 export const clientInfo = sqliteTable('client_info', {
   id: text('id').primaryKey(),
   sessionId: text('session_id')
     .notNull()
     .references(() => sessions.id, { onDelete: 'cascade' }),
 
-  // Basic client details
   clientName: text('client_name').notNull(),
   clientEmail: text('client_email'),
   clientPhone: text('client_phone'),
-  businessType: text('business_type'), // Industry/sector
-  companySize: text('company_size'), // employees, revenue, etc.
+  businessType: text('business_type'),
+  companySize: text('company_size'),
 
-  // Problem discovery
   problemStatement: text('problem_statement').notNull(),
-  currentSolution: text('current_solution'), // What they use now
-  whyNow: text('why_now'), // Why solving this now
+  currentSolution: text('current_solution'),
+  whyNow: text('why_now'),
 
-  // Three Wins framework
-  threeWins: text('three_wins'), // JSON: ["win1", "win2", "win3"]
-
-  // Requirements
-  painPoints: text('pain_points'), // JSON: ["pain1", "pain2", ...]
+  threeWins: text('three_wins'), // JSON array
+  painPoints: text('pain_points'), // JSON array
   mustHaveFeatures: text('must_have_features'), // JSON array
   niceToHaveFeatures: text('nice_to_have_features'), // JSON array
 
-  // Budget & timeline
-  budget: text('budget'), // Budget range or amount
-  timeline: text('timeline'), // When they need it
-  decisionMakers: text('decision_makers'), // Who's involved in decision
+  budget: text('budget'),
+  timeline: text('timeline'),
+  decisionMakers: text('decision_makers'),
 
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 })
 
-// Template selections and recommendations
+// Template selections (optional)
 export const templateSelections = sqliteTable('template_selections', {
   id: text('id').primaryKey(),
   sessionId: text('session_id')
@@ -116,41 +128,38 @@ export const templateSelections = sqliteTable('template_selections', {
   templateName: text('template_name').notNull(),
   templateCategory: text('template_category'),
 
-  // Scoring
-  fitScore: integer('fit_score'), // 1-10, how well template fits needs
-  fitReason: text('fit_reason'), // Why this score
+  fitScore: integer('fit_score'),
+  fitReason: text('fit_reason'),
 
-  // Selection
   isSelected: integer('is_selected', { mode: 'boolean' }).notNull().default(false),
   selectedAt: integer('selected_at', { mode: 'timestamp' }),
-  selectedBy: text('selected_by'), // 'builder' or 'facilitator'
+  selectedBy: text('selected_by'),
 
-  // Customization planning
   customizationNotes: text('customization_notes'),
-  estimatedBuildTime: integer('estimated_build_time'), // minutes
-  customFields: text('custom_fields'), // JSON: fields to add
-  customLogic: text('custom_logic'), // JSON: business rules to implement
+  estimatedBuildTime: integer('estimated_build_time'),
+  customFields: text('custom_fields'),
+  customLogic: text('custom_logic'),
 
-  // AI suggestions
   aiSuggested: integer('ai_suggested', { mode: 'boolean' }).default(false),
   aiReasoning: text('ai_reasoning'),
 
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 })
 
-// Free-form notes throughout session
+// Session notes (optional)
 export const sessionNotes = sqliteTable('session_notes', {
   id: text('id').primaryKey(),
   sessionId: text('session_id')
     .notNull()
     .references(() => sessions.id, { onDelete: 'cascade' }),
 
-  phase: text('phase', { enum: ['discovery', 'build', 'demo', 'general'] }).notNull(),
+  phase: text('phase', {
+    enum: ['discovery', 'build', 'demo', 'expectations', 'longterm', 'close', 'general'],
+  }).notNull(),
   content: text('content').notNull(),
   createdBy: text('created_by', { enum: ['builder', 'facilitator'] }).notNull(),
 
-  // Organization
-  tags: text('tags'), // JSON: ['technical', 'pricing', 'follow-up']
+  tags: text('tags'), // JSON array
   isPinned: integer('is_pinned', { mode: 'boolean' }).default(false),
   isActionItem: integer('is_action_item', { mode: 'boolean' }).default(false),
 
@@ -160,7 +169,17 @@ export const sessionNotes = sqliteTable('session_notes', {
 
 // Export types
 export type Session = typeof sessions.$inferSelect
+export type NewSession = typeof sessions.$inferInsert
 export type SessionStep = typeof sessionSteps.$inferSelect
+export type NewSessionStep = typeof sessionSteps.$inferInsert
 export type ClientInfo = typeof clientInfo.$inferSelect
 export type TemplateSelection = typeof templateSelections.$inferSelect
 export type SessionNote = typeof sessionNotes.$inferSelect
+
+// Role type for use across the app
+export type Role = 'builder' | 'facilitator'
+
+// Phase types
+export type BuilderPhase = 'discovery' | 'build' | 'demo'
+export type FacilitatorPhase = 'expectations' | 'longterm' | 'close'
+export type Phase = BuilderPhase | FacilitatorPhase
