@@ -445,4 +445,167 @@ describe('StepChecklist', () => {
       })
     })
   })
+
+  describe('Error Handling', () => {
+    let consoleSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+      consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+      consoleSpy.mockRestore()
+    })
+
+    it('should handle updateStep failure when toggling status', async () => {
+      const { updateStep } = await import('@/lib/client-actions')
+      vi.mocked(updateStep).mockReturnValue({ success: false, error: 'Network error' })
+
+      render(<StepChecklist steps={mockSteps} currentPhase="discovery" />)
+
+      const step3 = screen.getByTestId('step-step_3')
+      const checkbox = step3.querySelector('button')
+      fireEvent.click(checkbox!)
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Failed to update step:', 'Network error')
+      })
+    })
+
+    it('should handle updateStep exception when toggling status', async () => {
+      const { updateStep } = await import('@/lib/client-actions')
+      vi.mocked(updateStep).mockImplementation(() => {
+        throw new Error('Unexpected error')
+      })
+
+      render(<StepChecklist steps={mockSteps} currentPhase="discovery" />)
+
+      const step3 = screen.getByTestId('step-step_3')
+      const checkbox = step3.querySelector('button')
+      fireEvent.click(checkbox!)
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Error updating step:', expect.any(Error))
+      })
+    })
+
+    it('should handle updateStep failure when saving notes', async () => {
+      const { updateStep } = await import('@/lib/client-actions')
+      vi.mocked(updateStep).mockReturnValue({ success: false, error: 'Database error' })
+
+      render(<StepChecklist steps={mockSteps} currentPhase="discovery" />)
+
+      // Expand step
+      const step2 = screen.getByTestId('step-step_2')
+      const titleArea = step2.querySelector('[class*="cursor-pointer"]')
+      fireEvent.click(titleArea || step2)
+
+      await waitFor(() => {
+        expect(screen.getByText(/add notes/i)).toBeInTheDocument()
+      })
+
+      // Add notes
+      fireEvent.click(screen.getByText(/add notes/i))
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText(/add notes/i)).toBeInTheDocument()
+      })
+
+      const textarea = screen.getByPlaceholderText(/add notes/i)
+      fireEvent.change(textarea, { target: { value: 'Test note' } })
+
+      const saveButtons = screen.getAllByRole('button', { name: /^save$/i })
+      fireEvent.click(saveButtons[0])
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Failed to save notes:', 'Database error')
+      })
+    })
+
+    it('should handle updateStep exception when saving notes', async () => {
+      const { updateStep } = await import('@/lib/client-actions')
+      vi.mocked(updateStep).mockImplementation(() => {
+        throw new Error('Connection failed')
+      })
+
+      render(<StepChecklist steps={mockSteps} currentPhase="discovery" />)
+
+      // Expand step
+      const step2 = screen.getByTestId('step-step_2')
+      const titleArea = step2.querySelector('[class*="cursor-pointer"]')
+      fireEvent.click(titleArea || step2)
+
+      await waitFor(() => {
+        expect(screen.getByText(/add notes/i)).toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByText(/add notes/i))
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText(/add notes/i)).toBeInTheDocument()
+      })
+
+      const textarea = screen.getByPlaceholderText(/add notes/i)
+      fireEvent.change(textarea, { target: { value: 'Test note' } })
+
+      const saveButtons = screen.getAllByRole('button', { name: /^save$/i })
+      fireEvent.click(saveButtons[0])
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Error saving notes:', expect.any(Error))
+      })
+    })
+
+    it('should handle updateStep failure when saving acquired value', async () => {
+      const { updateStep } = await import('@/lib/client-actions')
+      vi.mocked(updateStep).mockReturnValue({ success: false, error: 'Save failed' })
+
+      render(<StepChecklist steps={mockSteps} currentPhase="discovery" />)
+
+      // Expand step
+      const step2 = screen.getByTestId('step-step_2')
+      const titleArea = step2.querySelector('[class*="cursor-pointer"]')
+      fireEvent.click(titleArea || step2)
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText(/your answer/i)).toBeInTheDocument()
+      })
+
+      const input = screen.getByPlaceholderText(/your answer/i)
+      fireEvent.change(input, { target: { value: 'Test answer' } })
+
+      const saveButton = screen.getByRole('button', { name: /save answer/i })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Failed to save answer:', 'Save failed')
+      })
+    })
+
+    it('should handle updateStep exception when saving acquired value', async () => {
+      const { updateStep } = await import('@/lib/client-actions')
+      vi.mocked(updateStep).mockImplementation(() => {
+        throw new Error('Network timeout')
+      })
+
+      render(<StepChecklist steps={mockSteps} currentPhase="discovery" />)
+
+      // Expand step
+      const step2 = screen.getByTestId('step-step_2')
+      const titleArea = step2.querySelector('[class*="cursor-pointer"]')
+      fireEvent.click(titleArea || step2)
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText(/your answer/i)).toBeInTheDocument()
+      })
+
+      const input = screen.getByPlaceholderText(/your answer/i)
+      fireEvent.change(input, { target: { value: 'Test answer' } })
+
+      const saveButton = screen.getByRole('button', { name: /save answer/i })
+      fireEvent.click(saveButton)
+
+      await waitFor(() => {
+        expect(consoleSpy).toHaveBeenCalledWith('Error saving answer:', expect.any(Error))
+      })
+    })
+  })
 })
