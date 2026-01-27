@@ -52,20 +52,14 @@ function SessionDashboardContent({ sessionId, role: propRole }: { sessionId: str
   const [mounted, setMounted] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
-  // Initialize role from localStorage to avoid flash of wrong content
-  const [role, setRole] = useState<Role>(() => propRole || getStoredRole(sessionId) || 'builder')
 
   useEffect(() => {
     setMounted(true)
-    // Re-check role from localStorage after mount (in case of hydration mismatch)
-    if (!propRole) {
-      const storedRole = getStoredRole(sessionId)
-      if (storedRole) {
-        setRole(storedRole)
-      }
-    }
-  }, [sessionId, propRole])
+  }, [])
 
+  // Determine role: prop > localStorage > default
+  // Only check localStorage after mount to avoid SSR/hydration mismatch
+  const role: Role = propRole || (mounted ? getStoredRole(sessionId) : null) || 'builder'
   const isBuilder = role === 'builder'
   const isFacilitator = role === 'facilitator'
 
