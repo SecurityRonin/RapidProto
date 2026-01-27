@@ -131,5 +131,26 @@ test.describe('RapidProto E2E', () => {
       // Should have join-related content
       await expect(page.locator('body')).toBeVisible()
     })
+
+    test('should have practice solo option', async ({ page }) => {
+      await page.goto('/join')
+
+      // Should have practice solo button
+      await expect(page.getByRole('button', { name: /start practice session/i })).toBeVisible()
+    })
+
+    test('should start facilitator practice session', async ({ page }) => {
+      await page.goto('/join')
+
+      // Click practice solo button
+      await page.getByRole('button', { name: /start practice session/i }).click()
+
+      // Should redirect to session dashboard
+      await expect(page).toHaveURL(/\/session\/[a-zA-Z0-9_-]+/, { timeout: 10000 })
+      await page.waitForLoadState('networkidle')
+
+      // Should show facilitator-specific stage (expectations)
+      await expect(page.getByRole('heading', { name: /expectations steps/i })).toBeVisible({ timeout: 10000 })
+    })
   })
 })
