@@ -598,11 +598,7 @@ export async function addNote(sessionId: string, note: z.infer<typeof noteSchema
 
 export async function getSessionStatus(sessionId: string): Promise<SessionStatusResponse> {
   try {
-    const { userId } = auth()
-    if (!userId) {
-      return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }
-    }
-
+    // Sessions are public - the 6-char ID acts as an access token
     // Get session
     const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId))
     if (!session) {
@@ -645,11 +641,7 @@ export async function getSessionStatus(sessionId: string): Promise<SessionStatus
 
 export async function getTimeRemaining(sessionId: string): Promise<TimeRemainingResponse> {
   try {
-    const { userId } = auth()
-    if (!userId) {
-      return { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' }
-    }
-
+    // Sessions are public - the 6-char ID acts as an access token
     // Get session
     const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId))
     if (!session) {
