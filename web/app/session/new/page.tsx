@@ -8,6 +8,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, ArrowRight, Timer, Layers, Rocket, Loader2, Code2 } from 'lucide-react'
+import { saveSession, type Session, type SessionStep } from '@/lib/store'
+import { nanoid } from 'nanoid'
+
+// Create default builder steps for a new session
+function getDefaultBuilderSteps(sessionId: string): SessionStep[] {
+  const now = new Date()
+  const base = { sessionId, role: 'builder' as const, acquiredValue: null, startedAt: null, completedAt: null, timeSpent: null, notes: null, createdAt: now }
+
+  return [
+    { ...base, id: nanoid(), phase: 'discovery', stepNumber: 1, title: 'Define the core feature', description: 'What is the ONE thing this prototype must do?', estimatedMinutes: 3, status: 'pending' },
+    { ...base, id: nanoid(), phase: 'discovery', stepNumber: 2, title: 'Pick a template', description: 'Choose a starting point that gets you closest', estimatedMinutes: 4, status: 'pending' },
+    { ...base, id: nanoid(), phase: 'discovery', stepNumber: 3, title: 'List required changes', description: 'What needs to be added or modified?', estimatedMinutes: 3, status: 'pending' },
+    { ...base, id: nanoid(), phase: 'build', stepNumber: 1, title: 'Set up the project', description: 'Clone template, install dependencies', estimatedMinutes: 5, status: 'pending' },
+    { ...base, id: nanoid(), phase: 'build', stepNumber: 2, title: 'Implement core feature', description: 'Build the main functionality', estimatedMinutes: 15, status: 'pending' },
+    { ...base, id: nanoid(), phase: 'build', stepNumber: 3, title: 'Style and polish', description: 'Make it look presentable', estimatedMinutes: 10, status: 'pending' },
+    { ...base, id: nanoid(), phase: 'demo', stepNumber: 1, title: 'Test the happy path', description: 'Does the core feature work?', estimatedMinutes: 4, status: 'pending' },
+    { ...base, id: nanoid(), phase: 'demo', stepNumber: 2, title: 'Fix critical bugs', description: 'Only blockers, skip nice-to-haves', estimatedMinutes: 4, status: 'pending' },
+    { ...base, id: nanoid(), phase: 'demo', stepNumber: 3, title: 'Ship or screenshot', description: 'Deploy it or capture evidence', estimatedMinutes: 2, status: 'pending' },
+  ]
+}
 
 export default function NewSessionPage() {
   const router = useRouter()
@@ -31,6 +51,33 @@ export default function NewSessionPage() {
       if (result.success && result.data) {
         // Store role in localStorage for this session
         localStorage.setItem(`rapidproto_role_${result.data.id}`, 'builder')
+
+        // Sync session to localStorage for client-side state management
+        const apiSession = result.data
+        const now = new Date()
+        const localSession: Session = {
+          id: apiSession.id,
+          status: apiSession.status || 'active',
+          currentPhase: apiSession.currentPhase || 'discovery',
+          phaseStartedAt: new Date(apiSession.phaseStartedAt || now),
+          discoveryDuration: apiSession.discoveryDuration || 10,
+          buildDuration: apiSession.buildDuration || 30,
+          demoDuration: apiSession.demoDuration || 10,
+          startedAt: new Date(apiSession.startedAt || now),
+          pausedAt: apiSession.pausedAt ? new Date(apiSession.pausedAt) : null,
+          completedAt: apiSession.completedAt ? new Date(apiSession.completedAt) : null,
+          totalPausedTime: apiSession.totalPausedTime || 0,
+          sessionTitle: apiSession.sessionTitle || projectName || null,
+          builderJoined: true,
+          facilitatorJoined: apiSession.facilitatorJoined || false,
+          facilitatorStage: 'expectations',
+          syncedInputs: {},
+          createdAt: new Date(apiSession.createdAt || now),
+          updatedAt: new Date(apiSession.updatedAt || now),
+          steps: getDefaultBuilderSteps(apiSession.id),
+        }
+        saveSession(localSession)
+
         router.push(`/session/${result.data.id}`)
       } else {
         setError(result.error || 'Failed to create session')

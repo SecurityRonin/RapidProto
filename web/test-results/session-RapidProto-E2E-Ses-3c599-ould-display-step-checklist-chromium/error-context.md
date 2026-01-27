@@ -2,8 +2,9 @@
 
 ```yaml
 - generic [active] [ref=e1]:
-  - alert [ref=e2]: "404: This page could not be found."
-  - generic [ref=e4]:
-    - heading "404" [level=1] [ref=e5]
-    - heading "This page could not be found." [level=2] [ref=e7]
+  - generic [ref=e3]:
+    - paragraph [ref=e4]: Session not found
+    - link "Start a new session" [ref=e5] [cursor=pointer]:
+      - /url: /session/new
+  - alert [ref=e6]
 ```
