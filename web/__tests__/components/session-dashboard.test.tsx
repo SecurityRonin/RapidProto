@@ -7,53 +7,57 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { SessionDashboard } from '../../components/session/session-dashboard'
 
+// Fixed timestamp for testing
+const TEST_START = new Date('2024-01-15T10:00:00Z')
+
+const mockSessionData = {
+  session: {
+    id: 'session_123',
+    status: 'active',
+    currentPhase: 'discovery',
+    phaseStartedAt: TEST_START,
+    discoveryDuration: 10,
+    buildDuration: 30,
+    demoDuration: 10,
+    startedAt: TEST_START,
+    totalPausedTime: 0,
+    sessionTitle: 'Test Session',
+    steps: [
+      { id: 'step_1', stepNumber: 1, title: 'Define the core feature', status: 'completed', phase: 'discovery', estimatedMinutes: 3 },
+      { id: 'step_2', stepNumber: 2, title: 'Pick a template', status: 'in_progress', phase: 'discovery', estimatedMinutes: 4 },
+    ],
+  },
+  currentPhase: 'discovery',
+  timeRemaining: {
+    phase: 'discovery',
+    totalMinutes: 10,
+    elapsedMinutes: 5,
+    remainingMinutes: 5,
+    isOvertime: false,
+    overtimeMinutes: 0,
+  },
+  stepsCompleted: 1,
+  stepsTotal: 2,
+}
+
 vi.mock('@/lib/client-actions', () => ({
-  getSessionStatus: vi.fn(() => ({
-    success: true,
-    data: {
-      session: {
-        id: 'session_123',
-        status: 'active',
-        currentPhase: 'discovery',
-        phaseStartedAt: new Date(Date.now() - 5 * 60 * 1000),
-        discoveryDuration: 10,
-        buildDuration: 30,
-        demoDuration: 10,
-        startedAt: new Date(Date.now() - 5 * 60 * 1000),
-        totalPausedTime: 0,
-        sessionTitle: 'Test Session',
-        steps: [
-          { id: 'step_1', stepNumber: 1, title: 'Define the core feature', status: 'completed', phase: 'discovery', estimatedMinutes: 3 },
-          { id: 'step_2', stepNumber: 2, title: 'Pick a template', status: 'in_progress', phase: 'discovery', estimatedMinutes: 4 },
-        ],
-      },
-      currentPhase: 'discovery',
-      timeRemaining: {
-        phase: 'discovery',
-        totalMinutes: 10,
-        elapsedMinutes: 5,
-        remainingMinutes: 5,
-        isOvertime: false,
-        overtimeMinutes: 0,
-      },
-      stepsCompleted: 1,
-      stepsTotal: 2,
-    },
-  })),
+  getSessionStatus: vi.fn(() => ({ success: true, data: mockSessionData })),
   pauseSession: vi.fn(() => ({ success: true, data: { status: 'paused' } })),
   resumeSession: vi.fn(() => ({ success: true, data: { status: 'active' } })),
   advancePhase: vi.fn(() => ({ success: true, data: { currentPhase: 'build' } })),
   completeSession: vi.fn(() => ({ success: true, data: { status: 'completed' } })),
   updateStep: vi.fn(() => ({ success: true })),
+  advanceFacilitatorStage: vi.fn(() => ({ success: true, data: {} })),
 }))
 
 describe('SessionDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
   })
 
   afterEach(() => {
-    vi.useRealTimers()
+    vi.clearAllTimers()
   })
 
   describe('Basic Rendering', () => {

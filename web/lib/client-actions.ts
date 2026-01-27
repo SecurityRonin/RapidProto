@@ -44,7 +44,24 @@ export function getSessionStatus(sessionId: string): ActionResult<{
     }
 
     const timeRemaining = calculateTimeRemaining(session)
-    const phaseSteps = session.steps.filter(s => s.phase === session.currentPhase)
+
+    // Check user's role from localStorage to filter correct steps
+    const role = localStorage.getItem(`rapidproto_role_${sessionId}`) || 'builder'
+
+    // Filter steps based on role
+    // - Builder: filter by currentPhase (discovery, build, demo)
+    // - Facilitator: filter by facilitatorStage (expectations, longterm, close)
+    let phaseSteps: typeof session.steps
+    if (role === 'facilitator') {
+      phaseSteps = session.steps.filter(s =>
+        s.role === 'facilitator' && s.phase === session.facilitatorStage
+      )
+    } else {
+      phaseSteps = session.steps.filter(s =>
+        s.role === 'builder' && s.phase === session.currentPhase
+      )
+    }
+
     const stepsCompleted = phaseSteps.filter(s => s.status === 'completed').length
     const stepsTotal = phaseSteps.length
 

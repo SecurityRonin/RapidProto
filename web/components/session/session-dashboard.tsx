@@ -37,6 +37,14 @@ function formatTime(minutes: number): string {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
+// Helper to get role from localStorage (client-side only)
+function getStoredRole(sessionId: string): Role | null {
+  if (typeof window === 'undefined') return null
+  const stored = localStorage.getItem(`rapidproto_role_${sessionId}`)
+  if (stored === 'builder' || stored === 'facilitator') return stored
+  return null
+}
+
 function SessionDashboardContent({ sessionId, role: propRole }: { sessionId: string; role?: Role }) {
   const { session, loading, error, refresh } = useSession()
   const timeRemaining = useSessionTimer()
@@ -44,14 +52,15 @@ function SessionDashboardContent({ sessionId, role: propRole }: { sessionId: str
   const [mounted, setMounted] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
-  const [role, setRole] = useState<Role>(propRole || 'builder')
+  // Initialize role from localStorage to avoid flash of wrong content
+  const [role, setRole] = useState<Role>(() => propRole || getStoredRole(sessionId) || 'builder')
 
   useEffect(() => {
     setMounted(true)
-    // Detect role from localStorage if not provided as prop
-    if (!propRole && typeof window !== 'undefined') {
-      const storedRole = localStorage.getItem(`rapidproto_role_${sessionId}`) as Role | null
-      if (storedRole && (storedRole === 'builder' || storedRole === 'facilitator')) {
+    // Re-check role from localStorage after mount (in case of hydration mismatch)
+    if (!propRole) {
+      const storedRole = getStoredRole(sessionId)
+      if (storedRole) {
         setRole(storedRole)
       }
     }
