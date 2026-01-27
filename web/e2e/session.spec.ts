@@ -99,8 +99,8 @@ test.describe('RapidProto E2E', () => {
       await expect(page).toHaveURL(/\/session\/[a-zA-Z0-9_-]+/, { timeout: 15000 })
       await page.waitForLoadState('networkidle')
 
-      // Wait for dashboard to be fully loaded - look for Steps header
-      await expect(page.getByText(/steps$/i)).toBeVisible({ timeout: 10000 })
+      // Wait for dashboard to be fully loaded - look for discovery Steps heading
+      await expect(page.getByRole('heading', { name: /discovery steps/i })).toBeVisible({ timeout: 10000 })
 
       // Should show step content (Define core feature is the first step title)
       await expect(page.getByText(/define core feature/i)).toBeVisible({ timeout: 5000 })
@@ -116,8 +116,8 @@ test.describe('RapidProto E2E', () => {
       await expect(page).toHaveURL(/\/session\/[a-zA-Z0-9_-]+/, { timeout: 15000 })
       await page.waitForLoadState('networkidle')
 
-      // Wait for dashboard to be fully loaded - look for Steps header
-      await expect(page.getByText(/steps$/i)).toBeVisible({ timeout: 10000 })
+      // Wait for dashboard to be fully loaded - look for discovery Steps heading
+      await expect(page.getByRole('heading', { name: /discovery steps/i })).toBeVisible({ timeout: 10000 })
 
       // Should have pause button (matches the Button with Pause text)
       await expect(page.getByRole('button', { name: /pause/i })).toBeVisible({ timeout: 5000 })
