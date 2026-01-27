@@ -102,8 +102,8 @@ test.describe('RapidProto E2E', () => {
       // Wait for dashboard to be fully loaded - look for discovery Steps heading
       await expect(page.getByRole('heading', { name: /discovery steps/i })).toBeVisible({ timeout: 10000 })
 
-      // Should show step content (Define core feature is the first step title)
-      await expect(page.getByText(/define core feature/i)).toBeVisible({ timeout: 5000 })
+      // Should show step content (Define core feature is the first step title - it's an h4)
+      await expect(page.getByRole('heading', { name: /define the core feature/i })).toBeVisible({ timeout: 5000 })
     })
 
     test('should have pause button when active', async ({ page }) => {
