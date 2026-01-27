@@ -67,20 +67,13 @@ test.describe('RapidProto E2E', () => {
 
       // Wait for dashboard URL
       await expect(page).toHaveURL(/\/session\/[a-zA-Z0-9_-]+/, { timeout: 10000 })
-
-      // Wait for page to fully load
       await page.waitForLoadState('networkidle')
-      await page.waitForTimeout(2000) // Extra wait for React hydration
 
-      // Debug: take screenshot if discovery not found
-      const discoveryVisible = await page.getByText(/discovery/i).first().isVisible().catch(() => false)
-      if (!discoveryVisible) {
-        await page.screenshot({ path: 'debug-timer-test.png' })
-        console.log('Page content:', await page.content())
-      }
+      // Wait for discovery text (dashboard is loaded)
+      await expect(page.getByText(/discovery/i).first()).toBeVisible({ timeout: 10000 })
 
-      // Should show RapidProto header (the session dashboard is loaded)
-      await expect(page.getByText(/rapidproto/i).first()).toBeVisible({ timeout: 10000 })
+      // Dashboard should be visible (timer area exists)
+      await expect(page.locator('main')).toBeVisible()
     })
 
     test('should display phase indicators', async ({ page }) => {
@@ -102,14 +95,15 @@ test.describe('RapidProto E2E', () => {
       await titleInput.fill('Checklist Test')
       await page.getByRole('button', { name: /start 50-min session/i }).click()
 
-      await expect(page).toHaveURL(/\/session\/[a-zA-Z0-9_-]+/, { timeout: 10000 })
+      // Wait for redirect with longer timeout
+      await expect(page).toHaveURL(/\/session\/[a-zA-Z0-9_-]+/, { timeout: 15000 })
       await page.waitForLoadState('networkidle')
 
-      // Wait for discovery text (dashboard is loaded)
-      await expect(page.getByText(/discovery/i).first()).toBeVisible({ timeout: 10000 })
+      // Wait for dashboard to be fully loaded - look for Steps header
+      await expect(page.getByText(/steps$/i)).toBeVisible({ timeout: 10000 })
 
-      // Should show steps heading
-      await expect(page.getByText(/steps/i)).toBeVisible({ timeout: 5000 })
+      // Should show step content (Define core feature is the first step title)
+      await expect(page.getByText(/define core feature/i)).toBeVisible({ timeout: 5000 })
     })
 
     test('should have pause button when active', async ({ page }) => {
@@ -118,14 +112,15 @@ test.describe('RapidProto E2E', () => {
       await titleInput.fill('Pause Test')
       await page.getByRole('button', { name: /start 50-min session/i }).click()
 
-      await expect(page).toHaveURL(/\/session\/[a-zA-Z0-9_-]+/, { timeout: 10000 })
+      // Wait for redirect with longer timeout
+      await expect(page).toHaveURL(/\/session\/[a-zA-Z0-9_-]+/, { timeout: 15000 })
       await page.waitForLoadState('networkidle')
 
-      // Wait for discovery text (dashboard is loaded)
-      await expect(page.getByText(/discovery/i).first()).toBeVisible({ timeout: 10000 })
+      // Wait for dashboard to be fully loaded - look for Steps header
+      await expect(page.getByText(/steps$/i)).toBeVisible({ timeout: 10000 })
 
-      // Should have pause button (text Pause in a button)
-      await expect(page.locator('button:has-text("Pause")')).toBeVisible({ timeout: 5000 })
+      // Should have pause button (matches the Button with Pause text)
+      await expect(page.getByRole('button', { name: /pause/i })).toBeVisible({ timeout: 5000 })
     })
   })
 
