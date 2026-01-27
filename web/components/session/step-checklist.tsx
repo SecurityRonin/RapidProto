@@ -158,24 +158,22 @@ export function StepChecklist({ steps, currentPhase }: StepChecklistProps) {
                         <p className="text-sm text-muted-foreground">{step.description}</p>
                       )}
 
-                      {/* Acquired Value Input (builder steps only) */}
-                      {step.role === 'builder' && (
-                        <div className="space-y-2">
-                          <input
-                            type="text"
-                            value={getAcquiredValue(step)}
-                            onChange={e => handleAcquiredValueChange(step.id, e.target.value)}
-                            placeholder="Your answer..."
-                            className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                          />
-                          <Button
-                            size="sm"
-                            onClick={() => handleSaveAcquiredValue(step.id)}
-                          >
-                            Save Answer
-                          </Button>
-                        </div>
-                      )}
+                      {/* Acquired Value Input (for capturing answers/insights) */}
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          value={getAcquiredValue(step)}
+                          onChange={e => handleAcquiredValueChange(step.id, e.target.value)}
+                          placeholder={step.role === 'facilitator' ? "Client's response..." : "Your answer..."}
+                          className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveAcquiredValue(step.id)}
+                        >
+                          Save {step.role === 'facilitator' ? 'Response' : 'Answer'}
+                        </Button>
+                      </div>
 
                       {/* Notes Section */}
                       {editingNotes === step.id ? (

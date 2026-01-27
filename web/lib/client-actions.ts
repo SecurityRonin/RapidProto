@@ -12,6 +12,7 @@ import {
   calculateTimeRemaining,
   type Session,
   type Phase,
+  type FacilitatorStage,
 } from './store'
 
 export type ActionResult<T> =
@@ -159,6 +160,31 @@ export function completeSession(sessionId: string): ActionResult<Session> {
     return { success: true, data: session }
   } catch (error) {
     return { success: false, error: 'Failed to complete session' }
+  }
+}
+
+// Advance to next facilitator stage
+export function advanceFacilitatorStage(sessionId: string): ActionResult<Session> {
+  try {
+    const session = getSession(sessionId)
+    if (!session) {
+      return { success: false, error: 'Session not found' }
+    }
+
+    const stageOrder: FacilitatorStage[] = ['expectations', 'longterm', 'close']
+    const currentIndex = stageOrder.indexOf(session.facilitatorStage)
+
+    if (currentIndex >= stageOrder.length - 1) {
+      return { success: false, error: 'Already in final stage' }
+    }
+
+    session.facilitatorStage = stageOrder[currentIndex + 1]
+    session.updatedAt = new Date()
+    saveSession(session)
+
+    return { success: true, data: session }
+  } catch (error) {
+    return { success: false, error: 'Failed to advance stage' }
   }
 }
 

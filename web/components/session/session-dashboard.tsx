@@ -18,6 +18,7 @@ import {
   resumeSession,
   advancePhase,
   completeSession,
+  advanceFacilitatorStage,
 } from '@/lib/client-actions'
 import { SessionProvider, useSession, useSessionTimer, useCurrentPhase } from '@/hooks/use-session'
 import { StepChecklist } from './step-checklist'
@@ -36,19 +37,28 @@ function formatTime(minutes: number): string {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
-function SessionDashboardContent({ sessionId, role = 'builder' }: { sessionId: string; role: Role }) {
+function SessionDashboardContent({ sessionId, role: propRole }: { sessionId: string; role?: Role }) {
   const { session, loading, error, refresh } = useSession()
-  const isBuilder = role === 'builder'
-  const isFacilitator = role === 'facilitator'
   const timeRemaining = useSessionTimer()
   const currentPhase = useCurrentPhase()
   const [mounted, setMounted] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
+  const [role, setRole] = useState<Role>(propRole || 'builder')
 
   useEffect(() => {
     setMounted(true)
-  }, [])
+    // Detect role from localStorage if not provided as prop
+    if (!propRole && typeof window !== 'undefined') {
+      const storedRole = localStorage.getItem(`rapidproto_role_${sessionId}`) as Role | null
+      if (storedRole && (storedRole === 'builder' || storedRole === 'facilitator')) {
+        setRole(storedRole)
+      }
+    }
+  }, [sessionId, propRole])
+
+  const isBuilder = role === 'builder'
+  const isFacilitator = role === 'facilitator'
 
   const executeAction = (action: () => { success: boolean; error?: string }) => {
     setIsPending(true)
@@ -269,7 +279,8 @@ function SessionDashboardContent({ sessionId, role = 'builder' }: { sessionId: s
                 </Button>
               )}
 
-              {isActive && phase !== 'demo' && (
+              {/* Builder: Advance Phase */}
+              {isBuilder && isActive && phase !== 'demo' && (
                 <Button
                   size="lg"
                   onClick={() => executeAction(() => advancePhase(sessionId))}
@@ -284,7 +295,24 @@ function SessionDashboardContent({ sessionId, role = 'builder' }: { sessionId: s
                 </Button>
               )}
 
-              {isActive && phase === 'demo' && (
+              {/* Facilitator: Advance Stage */}
+              {isFacilitator && isActive && (session.session as any).facilitatorStage !== 'close' && (
+                <Button
+                  size="lg"
+                  onClick={() => executeAction(() => advanceFacilitatorStage(sessionId))}
+                  disabled={isPending}
+                >
+                  {(session.session as any).facilitatorStage === 'expectations' ? 'Start Long Term' : 'Start Close'}
+                  {isPending ? (
+                    <Loader2 className="w-4 h-4 ml-2 animate-spin" />
+                  ) : (
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  )}
+                </Button>
+              )}
+
+              {/* Complete Session */}
+              {isActive && ((isBuilder && phase === 'demo') || (isFacilitator && (session.session as any).facilitatorStage === 'close')) && (
                 <Button
                   size="lg"
                   onClick={() => executeAction(() => completeSession(sessionId))}
@@ -338,12 +366,15 @@ function SessionDashboardContent({ sessionId, role = 'builder' }: { sessionId: s
           {/* Step Checklist */}
           <div className="space-y-4">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest">
-              {isBuilder ? (phase === 'demo' ? 'Verify' : phase) : 'Current Stage'} Steps
+              {isBuilder
+                ? (phase === 'demo' ? 'Verify' : phase)
+                : ((session.session as any).facilitatorStage || 'expectations')
+              } Steps
             </h2>
             {session.session.steps && (
               <StepChecklist
                 steps={session.session.steps}
-                currentPhase={isBuilder ? phase : 'expectations'}
+                currentPhase={isBuilder ? phase : ((session.session as any).facilitatorStage || 'expectations')}
               />
             )}
           </div>
@@ -360,9 +391,12 @@ function SessionDashboardContent({ sessionId, role = 'builder' }: { sessionId: s
                 </div>
                 <div>
                   <div className="text-2xl font-semibold capitalize">
-                    {phase === 'demo' ? 'Verify' : phase}
+                    {isBuilder
+                      ? (phase === 'demo' ? 'Verify' : phase)
+                      : ((session.session as any).facilitatorStage || 'expectations')
+                    }
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">Phase</div>
+                  <div className="text-xs text-muted-foreground mt-1">{isBuilder ? 'Phase' : 'Stage'}</div>
                 </div>
                 <div>
                   <div className="text-2xl font-semibold">
