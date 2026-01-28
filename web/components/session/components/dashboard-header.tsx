@@ -2,10 +2,12 @@
  * Dashboard Header Component
  *
  * Sticky header with navigation, session info, and role indicator.
- * Includes subtle color tint to differentiate builder vs facilitator.
+ * Includes color accent to differentiate builder vs facilitator.
  */
 
-import Link from 'next/link'
+'use client'
+
+import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -26,25 +28,33 @@ export function DashboardHeader({
   status,
   sessionTitle,
 }: DashboardHeaderProps) {
+  const router = useRouter()
   const isBuilder = role === 'builder'
   const isFacilitator = role === 'facilitator'
+
+  const handleBack = () => {
+    router.push('/')
+  }
 
   return (
     <header
       className={cn(
         'sticky top-0 z-10 backdrop-blur-sm border-b',
-        // Role-based color tint (subtle, non-intrusive)
-        isBuilder && 'bg-background/80',
-        isFacilitator && 'bg-violet-50/80 dark:bg-violet-950/30'
+        // Role-based color accent (more visible)
+        isBuilder && 'bg-background/90 border-b-primary/20',
+        isFacilitator && 'bg-violet-100/90 dark:bg-violet-950/50 border-b-violet-400/40'
       )}
     >
       <div className="container max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
-        {/* Navigation - fixed: move gap-2 to Button */}
-        <Button variant="ghost" size="sm" className="gap-2" asChild>
-          <Link href="/">
-            <ArrowLeft className="w-4 h-4" />
-            <span className="font-medium">RapidProto</span>
-          </Link>
+        {/* Navigation - using onClick for reliable navigation */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-2"
+          onClick={handleBack}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span className="font-medium">RapidProto</span>
         </Button>
 
         {/* Session Info */}
@@ -56,9 +66,9 @@ export function DashboardHeader({
             </Badge>
           )}
 
-          {/* Role indicator (facilitator only) */}
+          {/* Role indicator (facilitator only) - more prominent */}
           {isFacilitator && (
-            <Badge variant="secondary" className="text-xs bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300">
+            <Badge className="text-xs bg-violet-500 text-white hover:bg-violet-600">
               Facilitator
             </Badge>
           )}

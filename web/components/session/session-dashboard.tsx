@@ -77,6 +77,7 @@ function SessionDashboardContent({ sessionId, propRole }: SessionDashboardConten
     resume,
     advancePhase,
     advanceStage,
+    regressStage,
     complete,
   } = useSessionActions({ sessionId, role })
 
@@ -140,9 +141,9 @@ function SessionDashboardContent({ sessionId, propRole }: SessionDashboardConten
     <div
       className={cn(
         'min-h-screen bg-gradient-to-b',
-        // Role-based background tint (subtle, non-intrusive)
+        // Role-based background tint (visible but not distracting)
         isBuilder && 'from-background to-muted/30',
-        isFacilitator && 'from-violet-50/50 to-violet-100/30 dark:from-violet-950/20 dark:to-violet-900/10'
+        isFacilitator && 'from-violet-100 to-violet-200/50 dark:from-violet-950/40 dark:to-violet-900/20'
       )}
     >
       {/* Header */}
@@ -174,6 +175,7 @@ function SessionDashboardContent({ sessionId, propRole }: SessionDashboardConten
             isPending={isPending}
             onPause={pause}
             onResume={resume}
+            onBack={regressStage}
             onAdvance={isBuilder ? advancePhase : advanceStage}
             onComplete={complete}
           />

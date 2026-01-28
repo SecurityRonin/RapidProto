@@ -209,12 +209,13 @@ describe('SessionDashboard', () => {
   })
 
   describe('Navigation', () => {
-    it('should have back link to home', async () => {
+    it('should have back button to home', async () => {
       render(<SessionDashboard sessionId="session_123" />)
 
       await waitFor(() => {
-        const backLink = screen.getByRole('link', { name: /rapidproto/i })
-        expect(backLink).toHaveAttribute('href', '/')
+        // Back button uses onClick with useRouter instead of Link
+        const backButton = screen.getByRole('button', { name: /rapidproto/i })
+        expect(backButton).toBeInTheDocument()
       })
     })
   })

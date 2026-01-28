@@ -205,6 +205,31 @@ export function advanceFacilitatorStage(sessionId: string): ActionResult<Session
   }
 }
 
+// Go back to previous facilitator stage
+export function regressFacilitatorStage(sessionId: string): ActionResult<Session> {
+  try {
+    const session = getSession(sessionId)
+    if (!session) {
+      return { success: false, error: 'Session not found' }
+    }
+
+    const stageOrder: FacilitatorStage[] = ['expectations', 'longterm', 'close']
+    const currentIndex = stageOrder.indexOf(session.facilitatorStage)
+
+    if (currentIndex <= 0) {
+      return { success: false, error: 'Already in first stage' }
+    }
+
+    session.facilitatorStage = stageOrder[currentIndex - 1]
+    session.updatedAt = new Date()
+    saveSession(session)
+
+    return { success: true, data: session }
+  } catch (error) {
+    return { success: false, error: 'Failed to go back' }
+  }
+}
+
 // Update step with optional acquiredValue for sync
 export function updateStep(
   stepId: string,

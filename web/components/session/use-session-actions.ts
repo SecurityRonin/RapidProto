@@ -14,6 +14,7 @@ import {
   advancePhase,
   completeSession,
   advanceFacilitatorStage,
+  regressFacilitatorStage,
 } from '@/lib/client-actions'
 import { useSession } from '@/hooks/use-session'
 import type { ActionResult, Role, BuilderPhase, FacilitatorStage } from './types'
@@ -39,6 +40,8 @@ interface UseSessionActionsResult {
   advancePhase: () => void
   /** Advance to the next stage (facilitator) */
   advanceStage: () => void
+  /** Go back to previous stage (facilitator) */
+  regressStage: () => void
   /** Complete the session */
   complete: () => void
 }
@@ -116,6 +119,10 @@ export function useSessionActions({
     executeAction('advanceFacilitatorStage', () => advanceFacilitatorStage(sessionId))
   }, [executeAction, sessionId])
 
+  const regressStage = useCallback(() => {
+    executeAction('regressFacilitatorStage', () => regressFacilitatorStage(sessionId))
+  }, [executeAction, sessionId])
+
   const complete = useCallback(() => {
     executeAction('completeSession', () => completeSession(sessionId))
   }, [executeAction, sessionId])
@@ -132,6 +139,7 @@ export function useSessionActions({
     resume,
     advancePhase: advance,
     advanceStage,
+    regressStage,
     complete,
   }
 }
@@ -155,8 +163,10 @@ interface ActionVisibilityParams {
 export function getVisibleActions(params: ActionVisibilityParams): {
   showPause: boolean
   showResume: boolean
+  showBack: boolean
   showAdvance: boolean
   showComplete: boolean
+  backLabel: string | null
   advanceLabel: string | null
 } {
   const { role, status, phase, facilitatorStage } = params
@@ -169,8 +179,10 @@ export function getVisibleActions(params: ActionVisibilityParams): {
     return {
       showPause: false,
       showResume: false,
+      showBack: false,
       showAdvance: false,
       showComplete: false,
+      backLabel: null,
       advanceLabel: null,
     }
   }
@@ -179,19 +191,28 @@ export function getVisibleActions(params: ActionVisibilityParams): {
     return {
       showPause: isActive,
       showResume: isPaused,
+      showBack: false, // Builder can't go back phases
       showAdvance: isActive && phase !== 'demo',
       showComplete: isActive && phase === 'demo',
+      backLabel: null,
       advanceLabel: phase === 'discovery' ? 'Start Build' : phase === 'build' ? 'Start Verify' : null,
     }
   }
 
-  // Facilitator
+  // Facilitator - can navigate back and forth between stages
   const currentStage = facilitatorStage || 'expectations'
   return {
     showPause: isActive,
     showResume: isPaused,
+    showBack: isActive && currentStage !== 'expectations', // Can go back unless at first stage
     showAdvance: isActive && currentStage !== 'close',
     showComplete: isActive && currentStage === 'close',
+    backLabel:
+      currentStage === 'longterm'
+        ? 'Back to Expectations'
+        : currentStage === 'close'
+        ? 'Back to Long Term'
+        : null,
     advanceLabel:
       currentStage === 'expectations'
         ? 'Start Long Term'

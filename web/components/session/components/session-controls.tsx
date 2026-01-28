@@ -1,10 +1,11 @@
 /**
  * Session Controls Component
  *
- * Action buttons for pausing, resuming, advancing, and completing sessions.
+ * Action buttons for pausing, resuming, navigating stages, and completing sessions.
+ * Facilitator can navigate back and forth between stages.
  */
 
-import { Pause, Play, ArrowRight, CheckCircle, Loader2 } from 'lucide-react'
+import { Pause, Play, ArrowRight, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Role, SessionStatus, BuilderPhase, FacilitatorStage } from '../types'
 import { getVisibleActions } from '../use-session-actions'
@@ -17,6 +18,7 @@ interface SessionControlsProps {
   isPending: boolean
   onPause: () => void
   onResume: () => void
+  onBack: () => void
   onAdvance: () => void
   onComplete: () => void
 }
@@ -29,10 +31,11 @@ export function SessionControls({
   isPending,
   onPause,
   onResume,
+  onBack,
   onAdvance,
   onComplete,
 }: SessionControlsProps) {
-  const { showPause, showResume, showAdvance, showComplete, advanceLabel } =
+  const { showPause, showResume, showBack, showAdvance, showComplete, backLabel, advanceLabel } =
     getVisibleActions({
       role,
       status,
@@ -73,6 +76,18 @@ export function SessionControls({
             <Play className="w-4 h-4 mr-2" />
           )}
           Resume
+        </Button>
+      )}
+
+      {/* Back Button (facilitator only) */}
+      {showBack && backLabel && (
+        <Button variant="outline" size="lg" onClick={onBack} disabled={isPending}>
+          {isPending ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <ArrowLeft className="w-4 h-4 mr-2" />
+          )}
+          {backLabel}
         </Button>
       )}
 
