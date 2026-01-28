@@ -12,6 +12,7 @@ import {
   pauseSession,
   resumeSession,
   advancePhase,
+  regressPhase,
   completeSession,
   advanceFacilitatorStage,
   regressFacilitatorStage,
@@ -42,6 +43,8 @@ interface UseSessionActionsResult {
   advanceStage: () => void
   /** Go back to previous stage (facilitator) */
   regressStage: () => void
+  /** Go back to previous phase (builder) */
+  regressPhase: () => void
   /** Complete the session */
   complete: () => void
 }
@@ -123,6 +126,10 @@ export function useSessionActions({
     executeAction('regressFacilitatorStage', () => regressFacilitatorStage(sessionId))
   }, [executeAction, sessionId])
 
+  const goBackPhase = useCallback(() => {
+    executeAction('regressPhase', () => regressPhase(sessionId))
+  }, [executeAction, sessionId])
+
   const complete = useCallback(() => {
     executeAction('completeSession', () => completeSession(sessionId))
   }, [executeAction, sessionId])
@@ -140,6 +147,7 @@ export function useSessionActions({
     advancePhase: advance,
     advanceStage,
     regressStage,
+    regressPhase: goBackPhase,
     complete,
   }
 }
@@ -191,10 +199,15 @@ export function getVisibleActions(params: ActionVisibilityParams): {
     return {
       showPause: isActive,
       showResume: isPaused,
-      showBack: false, // Builder can't go back phases
+      showBack: isActive && phase !== 'discovery', // Can go back unless at first phase
       showAdvance: isActive && phase !== 'demo',
       showComplete: isActive && phase === 'demo',
-      backLabel: null,
+      backLabel:
+        phase === 'build'
+          ? 'Back to Discovery'
+          : phase === 'demo'
+          ? 'Back to Build'
+          : null,
       advanceLabel: phase === 'discovery' ? 'Start Build' : phase === 'build' ? 'Start Verify' : null,
     }
   }

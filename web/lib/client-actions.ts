@@ -161,6 +161,32 @@ export function advancePhase(sessionId: string): ActionResult<Session> {
   }
 }
 
+// Go back to previous phase (builder)
+export function regressPhase(sessionId: string): ActionResult<Session> {
+  try {
+    const session = getSession(sessionId)
+    if (!session) {
+      return { success: false, error: 'Session not found' }
+    }
+
+    const phaseOrder: Phase[] = ['discovery', 'build', 'demo']
+    const currentIndex = phaseOrder.indexOf(session.currentPhase)
+
+    if (currentIndex <= 0) {
+      return { success: false, error: 'Already in first phase' }
+    }
+
+    session.currentPhase = phaseOrder[currentIndex - 1]
+    session.phaseStartedAt = new Date()
+    session.updatedAt = new Date()
+    saveSession(session)
+
+    return { success: true, data: session }
+  } catch (error) {
+    return { success: false, error: 'Failed to go back' }
+  }
+}
+
 // Complete session
 export function completeSession(sessionId: string): ActionResult<Session> {
   try {

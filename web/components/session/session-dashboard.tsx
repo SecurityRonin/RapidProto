@@ -79,6 +79,7 @@ function SessionDashboardContent({ sessionId, propRole }: SessionDashboardConten
     advancePhase,
     advanceStage,
     regressStage,
+    regressPhase,
     complete,
   } = useSessionActions({ sessionId, role })
 
@@ -112,7 +113,7 @@ function SessionDashboardContent({ sessionId, propRole }: SessionDashboardConten
       onPause: pause,
       onResume: resume,
       onAdvance: isBuilder ? advancePhase : advanceStage,
-      onBack: isFacilitator ? regressStage : undefined,
+      onBack: isBuilder ? regressPhase : regressStage,
     },
     context: shortcutContext,
   })
@@ -212,7 +213,7 @@ function SessionDashboardContent({ sessionId, propRole }: SessionDashboardConten
             showShortcuts={shortcutsEnabled}
             onPause={pause}
             onResume={resume}
-            onBack={regressStage}
+            onBack={isBuilder ? regressPhase : regressStage}
             onAdvance={isBuilder ? advancePhase : advanceStage}
             onComplete={complete}
           />
