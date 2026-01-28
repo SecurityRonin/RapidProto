@@ -416,7 +416,7 @@ function SessionDashboardContent({ sessionId, role: propRole }: { sessionId: str
   )
 }
 
-export function SessionDashboard({ sessionId, role = 'builder' }: SessionDashboardProps) {
+export function SessionDashboard({ sessionId, role }: SessionDashboardProps) {
   return (
     <SessionProvider sessionId={sessionId}>
       <SessionDashboardContent sessionId={sessionId} role={role} />
