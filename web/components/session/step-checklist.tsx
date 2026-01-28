@@ -1,12 +1,13 @@
 /**
  * Step Checklist Component
  * Clean design using shadcn/ui components
+ * Features debounced autosave for acquired values
  */
 
 'use client'
 
-import { useState } from 'react'
-import { Check, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Check, ChevronDown, ChevronUp, Loader2, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -19,11 +20,27 @@ interface StepChecklistProps {
   currentPhase: 'discovery' | 'build' | 'demo' | 'expectations' | 'longterm' | 'close'
 }
 
+// Autosave states
+type SaveStatus = 'idle' | 'saving' | 'saved'
+
 export function StepChecklist({ steps, currentPhase }: StepChecklistProps) {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set())
   const [editingNotes, setEditingNotes] = useState<string | null>(null)
   const [notesValue, setNotesValue] = useState('')
   const [acquiredValues, setAcquiredValues] = useState<Record<string, string>>({})
+
+  // Autosave state
+  const [saveStatus, setSaveStatus] = useState<Record<string, SaveStatus>>({})
+  const saveTimers = useRef<Record<string, NodeJS.Timeout>>({})
+  const savedTimers = useRef<Record<string, NodeJS.Timeout>>({})
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(saveTimers.current).forEach(clearTimeout)
+      Object.values(savedTimers.current).forEach(clearTimeout)
+    }
+  }, [])
 
   // Initialize acquired values from steps
   const getAcquiredValue = (step: SessionStep): string => {
@@ -31,15 +48,57 @@ export function StepChecklist({ steps, currentPhase }: StepChecklistProps) {
     return step.acquiredValue || ''
   }
 
+  // Debounced autosave function
+  const debouncedSave = useCallback((stepId: string, value: string) => {
+    // Clear existing timer for this step
+    if (saveTimers.current[stepId]) {
+      clearTimeout(saveTimers.current[stepId])
+    }
+
+    // Set saving status
+    setSaveStatus(prev => ({ ...prev, [stepId]: 'saving' }))
+
+    // Debounce: save after 1500ms of no typing
+    saveTimers.current[stepId] = setTimeout(() => {
+      try {
+        const result = updateStep(stepId, { acquiredValue: value })
+        if (result.success) {
+          setSaveStatus(prev => ({ ...prev, [stepId]: 'saved' }))
+          // Reset to idle after showing "Saved" for 2 seconds
+          savedTimers.current[stepId] = setTimeout(() => {
+            setSaveStatus(prev => ({ ...prev, [stepId]: 'idle' }))
+          }, 2000)
+        } else {
+          console.error('Failed to save answer:', result.error)
+          setSaveStatus(prev => ({ ...prev, [stepId]: 'idle' }))
+        }
+      } catch (error) {
+        console.error('Error saving answer:', error)
+        setSaveStatus(prev => ({ ...prev, [stepId]: 'idle' }))
+      }
+    }, 1500)
+  }, [])
+
   const handleAcquiredValueChange = (stepId: string, value: string) => {
     setAcquiredValues(prev => ({ ...prev, [stepId]: value }))
+    debouncedSave(stepId, value)
   }
 
   const handleSaveAcquiredValue = (stepId: string) => {
+    // Clear any pending debounce timer
+    if (saveTimers.current[stepId]) {
+      clearTimeout(saveTimers.current[stepId])
+    }
+
     try {
       const result = updateStep(stepId, { acquiredValue: acquiredValues[stepId] })
       if (!result.success) {
         console.error('Failed to save answer:', result.error)
+      } else {
+        setSaveStatus(prev => ({ ...prev, [stepId]: 'saved' }))
+        savedTimers.current[stepId] = setTimeout(() => {
+          setSaveStatus(prev => ({ ...prev, [stepId]: 'idle' }))
+        }, 2000)
       }
     } catch (error) {
       console.error('Error saving answer:', error)
@@ -160,13 +219,28 @@ export function StepChecklist({ steps, currentPhase }: StepChecklistProps) {
 
                       {/* Acquired Value Input (for capturing answers/insights) */}
                       <div className="space-y-2">
-                        <input
-                          type="text"
-                          value={getAcquiredValue(step)}
-                          onChange={e => handleAcquiredValueChange(step.id, e.target.value)}
-                          placeholder={step.role === 'facilitator' ? "Client's response..." : "Your answer..."}
-                          className="w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={getAcquiredValue(step)}
+                            onChange={e => handleAcquiredValueChange(step.id, e.target.value)}
+                            placeholder={step.role === 'facilitator' ? "Client's response..." : "Your answer..."}
+                            className="w-full px-3 py-2 pr-20 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                          />
+                          {/* Autosave status indicator */}
+                          {saveStatus[step.id] === 'saving' && (
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground flex items-center gap-1">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Saving...
+                            </span>
+                          )}
+                          {saveStatus[step.id] === 'saved' && (
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-green-600 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Saved
+                            </span>
+                          )}
+                        </div>
                         <Button
                           size="sm"
                           onClick={() => handleSaveAcquiredValue(step.id)}

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ArrowRight, Code2, Users, Clock, Zap, Target, Rocket } from 'lucide-react'
+import { SessionHistory } from '@/components/session/session-history'
 
 export default function HomePage() {
   return (
@@ -99,6 +100,11 @@ export default function HomePage() {
               </Button>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Session History */}
+        <div className="max-w-3xl mx-auto mt-12">
+          <SessionHistory maxItems={5} />
         </div>
       </section>
 

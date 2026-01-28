@@ -297,3 +297,45 @@ export function calculateTimeRemaining(session: Session): {
     overtimeMinutes,
   }
 }
+
+// =============================================================================
+// SESSION HISTORY HELPERS
+// =============================================================================
+
+/**
+ * Get completed sessions sorted by completion date (most recent first)
+ */
+export function getCompletedSessions(): Session[] {
+  return getSessions()
+    .filter(s => s.status === 'completed')
+    .sort((a, b) => {
+      const dateA = a.completedAt?.getTime() ?? 0
+      const dateB = b.completedAt?.getTime() ?? 0
+      return dateB - dateA
+    })
+}
+
+/**
+ * Get active (non-completed) sessions
+ */
+export function getActiveSessions(): Session[] {
+  return getSessions()
+    .filter(s => s.status !== 'completed')
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+}
+
+/**
+ * Calculate total session duration in minutes
+ */
+export function calculateSessionDuration(session: Session): number {
+  if (!session.completedAt) {
+    // For active sessions, calculate from start to now minus paused time
+    const now = new Date()
+    const totalMs = now.getTime() - session.startedAt.getTime() - session.totalPausedTime
+    return Math.round(totalMs / 1000 / 60)
+  }
+
+  // For completed sessions, calculate from start to completion minus paused time
+  const totalMs = session.completedAt.getTime() - session.startedAt.getTime() - session.totalPausedTime
+  return Math.round(totalMs / 1000 / 60)
+}

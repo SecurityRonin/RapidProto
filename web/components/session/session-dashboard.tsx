@@ -19,7 +19,7 @@
 
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { SessionProvider, useSession, useSessionTimer, useCurrentPhase } from '@/hooks/use-session'
 import { StepChecklist } from './step-checklist'
 import { cn } from '@/lib/utils'
@@ -30,7 +30,8 @@ import { BUILDER_PHASE_NAMES, FACILITATOR_STAGE_NAMES } from './constants'
 
 // Hooks
 import { useRole } from './use-role'
-import { useSessionActions } from './use-session-actions'
+import { useSessionActions, getVisibleActions } from './use-session-actions'
+import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
 
 // Debug
 import { debug, createDebugInfo } from './debug'
@@ -80,6 +81,41 @@ function SessionDashboardContent({ sessionId, propRole }: SessionDashboardConten
     regressStage,
     complete,
   } = useSessionActions({ sessionId, role })
+
+  // Compute keyboard shortcut context
+  const shortcutContext = useMemo(() => {
+    if (!session) {
+      return { isPaused: false, canAdvance: false, canGoBack: false }
+    }
+
+    const { session: sessionData } = session
+    const phase = currentPhase ?? 'discovery'
+    const facilitatorStage = sessionData.facilitatorStage ?? 'expectations'
+
+    const { showAdvance, showBack, showPause, showResume } = getVisibleActions({
+      role,
+      status: sessionData.status,
+      phase,
+      facilitatorStage,
+    })
+
+    return {
+      isPaused: sessionData.status === 'paused',
+      canAdvance: showAdvance,
+      canGoBack: showBack,
+    }
+  }, [session, currentPhase, role])
+
+  // Keyboard shortcuts
+  const { enabled: shortcutsEnabled, toggle: toggleShortcuts } = useKeyboardShortcuts({
+    callbacks: {
+      onPause: pause,
+      onResume: resume,
+      onAdvance: isBuilder ? advancePhase : advanceStage,
+      onBack: isFacilitator ? regressStage : undefined,
+    },
+    context: shortcutContext,
+  })
 
   // ---------------------------------------------------------------------------
   // DEBUG LOGGING
@@ -173,6 +209,7 @@ function SessionDashboardContent({ sessionId, propRole }: SessionDashboardConten
             phase={phase}
             facilitatorStage={facilitatorStage}
             isPending={isPending}
+            showShortcuts={shortcutsEnabled}
             onPause={pause}
             onResume={resume}
             onBack={regressStage}

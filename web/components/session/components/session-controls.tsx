@@ -3,12 +3,14 @@
  *
  * Action buttons for pausing, resuming, navigating stages, and completing sessions.
  * Facilitator can navigate back and forth between stages.
+ * Shows keyboard shortcut hints when shortcuts are enabled.
  */
 
 import { Pause, Play, ArrowRight, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Role, SessionStatus, BuilderPhase, FacilitatorStage } from '../types'
 import { getVisibleActions } from '../use-session-actions'
+import { SHORTCUT_HINTS } from '@/hooks/use-keyboard-shortcuts'
 
 interface SessionControlsProps {
   role: Role
@@ -16,11 +18,20 @@ interface SessionControlsProps {
   phase: BuilderPhase
   facilitatorStage?: FacilitatorStage
   isPending: boolean
+  showShortcuts?: boolean
   onPause: () => void
   onResume: () => void
   onBack: () => void
   onAdvance: () => void
   onComplete: () => void
+}
+
+/**
+ * Format button label with optional shortcut hint
+ */
+function withShortcut(label: string, shortcut: string | undefined, show: boolean): string {
+  if (!show || !shortcut) return label
+  return `${label} [${shortcut}]`
 }
 
 export function SessionControls({
@@ -29,6 +40,7 @@ export function SessionControls({
   phase,
   facilitatorStage,
   isPending,
+  showShortcuts = false,
   onPause,
   onResume,
   onBack,
@@ -63,7 +75,7 @@ export function SessionControls({
           ) : (
             <Pause className="w-4 h-4 mr-2" />
           )}
-          Pause
+          {withShortcut('Pause', SHORTCUT_HINTS.pause, showShortcuts)}
         </Button>
       )}
 
@@ -75,7 +87,7 @@ export function SessionControls({
           ) : (
             <Play className="w-4 h-4 mr-2" />
           )}
-          Resume
+          {withShortcut('Resume', SHORTCUT_HINTS.resume, showShortcuts)}
         </Button>
       )}
 
@@ -87,14 +99,14 @@ export function SessionControls({
           ) : (
             <ArrowLeft className="w-4 h-4 mr-2" />
           )}
-          {backLabel}
+          {withShortcut(backLabel, SHORTCUT_HINTS.back, showShortcuts)}
         </Button>
       )}
 
       {/* Advance Button (phase or stage) */}
       {showAdvance && advanceLabel && (
         <Button size="lg" onClick={onAdvance} disabled={isPending}>
-          {advanceLabel}
+          {withShortcut(advanceLabel, SHORTCUT_HINTS.advance, showShortcuts)}
           {isPending ? (
             <Loader2 className="w-4 h-4 ml-2 animate-spin" />
           ) : (
