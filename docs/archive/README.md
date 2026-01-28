@@ -11,6 +11,10 @@ Development artifacts preserved for historical context. These documents were cre
 | `BASE_TEMPLATE_SUMMARY.md` | Base template architecture documentation | 2026-01-28 |
 | `SCAFFOLDING_VS_FULL_TEMPLATE.md` | Technical explanation of template scaffolding | 2026-01-28 |
 | `IMPLEMENTATION_SUMMARY.md` | Session assistant implementation details | 2026-01-28 |
+| `TEMPLATES.md` | 75-template catalog (broader RapidProto ecosystem) | 2026-01-29 |
+| `TESTING.md` | Template testing strategy | 2026-01-29 |
+| `2026-01-25-type-safe-session-layer.md` | Completed implementation plan | 2026-01-29 |
+| `2026-01-25-rapidproto-ui-redesign.md` | Completed UI design plan | 2026-01-29 |
 
 ## When to Reference
 
