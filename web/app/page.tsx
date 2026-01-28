@@ -9,12 +9,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { ArrowRight, Code2, Users, Clock, Zap, Target, Rocket } from 'lucide-react'
 import { SessionHistory } from '@/components/session/session-history'
+import { Logo } from '@/components/ui/logo'
 
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-background to-muted/30">
       {/* Hero Section */}
-      <section className="container mx-auto px-4 pt-20 pb-16 text-center">
+      <section className="container mx-auto px-4 pt-12 pb-16 text-center">
+        <div className="flex justify-center mb-8">
+          <Logo size="xl" showText={false} />
+        </div>
         <Badge variant="secondary" className="mb-6">
           50-minute prototype sprints
         </Badge>
@@ -201,7 +205,10 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="container mx-auto px-4 py-8 text-center text-sm text-muted-foreground border-t">
-        <p>RapidProto - Build prototypes in 50 minutes</p>
+        <div className="flex items-center justify-center gap-2">
+          <Logo size="sm" showText={false} />
+          <span>RapidProto - Build prototypes in 50 minutes</span>
+        </div>
       </footer>
     </main>
   )

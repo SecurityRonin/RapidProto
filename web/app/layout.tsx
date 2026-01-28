@@ -8,6 +8,11 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
 export const metadata: Metadata = {
   title: 'RapidProto',
   description: 'From discovery to demo in 50 minutes',
+  icons: {
+    icon: '/icon-192.png',
+    apple: '/apple-icon.png',
+  },
+  manifest: '/manifest.json',
 }
 
 export default function RootLayout({

@@ -1,0 +1,21 @@
+{
+  "name": "RapidProto",
+  "short_name": "RapidProto",
+  "description": "From discovery to demo in 50 minutes",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0d1f",
+  "theme_color": "#f0b238",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
