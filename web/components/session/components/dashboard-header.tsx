@@ -17,7 +17,7 @@ interface DashboardHeaderProps {
   sessionId: string
   role: Role
   status: SessionStatus
-  sessionTitle?: string
+  sessionTitle?: string | null
 }
 
 export function DashboardHeader({

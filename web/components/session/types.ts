@@ -60,7 +60,7 @@ export interface SessionData {
   status: SessionStatus
   currentPhase: BuilderPhase
   facilitatorStage?: FacilitatorStage
-  sessionTitle?: string
+  sessionTitle?: string | null
   phaseStartedAt: Date | string
   startedAt: Date | string
   discoveryDuration: number
@@ -78,8 +78,8 @@ export interface SessionStep {
   title: string
   status: 'pending' | 'in_progress' | 'completed' | 'skipped'
   phase: Phase
-  role?: Role
-  estimatedMinutes?: number
+  role?: Role | null
+  estimatedMinutes?: number | null
 }
 
 /** Computed time remaining data */
