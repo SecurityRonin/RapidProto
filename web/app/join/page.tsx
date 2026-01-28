@@ -121,7 +121,7 @@ export default function JoinSessionPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+    <main className="min-h-screen bg-gradient-to-b from-violet-50 to-violet-100/50 dark:from-violet-950/40 dark:to-violet-900/20">
       <div className="container mx-auto px-4 py-8 max-w-md">
         {/* Header */}
         <div className="flex items-center gap-4 mb-12">

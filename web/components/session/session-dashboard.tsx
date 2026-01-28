@@ -178,7 +178,7 @@ function SessionDashboardContent({ sessionId, propRole }: SessionDashboardConten
       className={cn(
         'min-h-screen bg-gradient-to-b',
         // Role-based background tint (visible but not distracting)
-        isBuilder && 'from-background to-muted/30',
+        isBuilder && 'from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/20',
         isFacilitator && 'from-violet-100 to-violet-200/50 dark:from-violet-950/40 dark:to-violet-900/20'
       )}
     >
