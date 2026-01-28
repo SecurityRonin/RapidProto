@@ -74,6 +74,8 @@ Completed sessions appear on the landing page. Click to expand and:
 
 ## Builder Workflow
 
+> 📘 **[Full Builder Rundown](../docs/rundowns/BUILDER_RUNDOWN.md)** — Detailed guide with scripts, troubleshooting, and phase-by-phase instructions.
+
 ### Discovery (10 min)
 1. **Define the core feature** — What's the ONE thing this prototype must do?
 2. **Pick a template** — Choose a starting point that gets you closest
@@ -92,6 +94,8 @@ Completed sessions appear on the landing page. Click to expand and:
 ---
 
 ## Facilitator Workflow
+
+> 📘 **[Full Facilitator Rundown](../docs/rundowns/FACILITATOR_RUNDOWN.md)** — Detailed guide with scripts, client handling techniques, and stage-by-stage instructions.
 
 While the builder codes (during Build phase), you handle client conversations:
 
