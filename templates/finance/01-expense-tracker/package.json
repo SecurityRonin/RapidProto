@@ -2,11 +2,38 @@
   "name": "@rapidproto/template-1-expense-tracker",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "vitest",
-    "db:push": "drizzle-kit push:sqlite"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "db:push": "drizzle-kit push:sqlite",
+    "db:generate": "drizzle-kit generate:sqlite"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^4.29.0",
+    "@libsql/client": "^0.4.0",
+    "drizzle-orm": "^0.29.0",
+    "nanoid": "^5.0.0",
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.1.0",
+    "@testing-library/react": "^14.1.0",
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "@vitest/coverage-v8": "^1.1.0",
+    "drizzle-kit": "^0.20.0",
+    "jsdom": "^23.0.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0"
   }
 }
