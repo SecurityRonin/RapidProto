@@ -133,6 +133,7 @@ export function AcquiredAnswersSidebar({
                             phase={item.phase}
                             title={item.title}
                             value={item.value}
+                            role="builder"
                           />
                         ))}
                       </div>
@@ -155,6 +156,7 @@ export function AcquiredAnswersSidebar({
                             phase={item.phase}
                             title={item.title}
                             value={item.value}
+                            role="facilitator"
                           />
                         ))}
                       </div>
@@ -193,18 +195,29 @@ export function AcquiredAnswersSidebar({
   )
 }
 
-// Individual answer card
+// Individual answer card with role-based tint
 function AnswerCard({
   phase,
   title,
   value,
+  role,
 }: {
   phase: string
   title: string
   value: string
+  role: 'builder' | 'facilitator'
 }) {
   return (
-    <div className="p-2 rounded-md bg-muted/50 border border-border/50">
+    <div
+      className={cn(
+        'p-2 rounded-md border',
+        // Role-based background tint matching dashboard gradient colors
+        role === 'builder' &&
+          'bg-blue-50/80 border-blue-200/50 dark:bg-blue-950/40 dark:border-blue-800/30',
+        role === 'facilitator' &&
+          'bg-violet-100/80 border-violet-200/50 dark:bg-violet-950/40 dark:border-violet-800/30'
+      )}
+    >
       <div className="flex items-center gap-1.5 mb-1">
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
           {PHASE_LABELS[phase] || phase}
