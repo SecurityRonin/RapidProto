@@ -39,15 +39,19 @@ export function AcquiredAnswersSidebar({
   isOpen: controlledOpen,
   onToggle,
 }: AcquiredAnswersSidebarProps) {
-  // Support both controlled and uncontrolled modes
-  const [internalOpen, setInternalOpen] = useState(false)
+  // Support both controlled and uncontrolled modes - default to expanded
+  const [internalOpen, setInternalOpen] = useState(true)
   const isOpen = controlledOpen ?? internalOpen
 
-  // Load saved preference
+  // Load saved preference (only override if explicitly set to 'false')
   useEffect(() => {
-    if (typeof window !== 'undefined' && controlledOpen === undefined) {
-      const saved = localStorage.getItem('rapidproto_sidebar_open')
-      if (saved === 'true') setInternalOpen(true)
+    try {
+      if (typeof window !== 'undefined' && controlledOpen === undefined) {
+        const saved = localStorage.getItem('rapidproto_sidebar_open')
+        if (saved === 'false') setInternalOpen(false)
+      }
+    } catch {
+      // localStorage may be unavailable in some contexts
     }
   }, [controlledOpen])
 
@@ -57,7 +61,11 @@ export function AcquiredAnswersSidebar({
       onToggle(newState)
     } else {
       setInternalOpen(newState)
-      localStorage.setItem('rapidproto_sidebar_open', String(newState))
+      try {
+        localStorage.setItem('rapidproto_sidebar_open', String(newState))
+      } catch {
+        // localStorage may be unavailable
+      }
     }
   }
 
@@ -67,17 +75,28 @@ export function AcquiredAnswersSidebar({
     facilitator: [],
   }
 
-  for (const step of steps) {
-    if (step.acquiredValue && step.acquiredValue.trim()) {
-      const entry = {
-        phase: step.phase,
-        title: step.title,
-        value: step.acquiredValue,
-      }
-      if (step.role === 'builder') {
-        grouped.builder.push(entry)
-      } else {
-        grouped.facilitator.push(entry)
+  // Safely iterate over steps with defensive checks
+  if (Array.isArray(steps)) {
+    for (const step of steps) {
+      // Ensure step has required properties and a non-empty acquiredValue
+      if (
+        step &&
+        typeof step.acquiredValue === 'string' &&
+        step.acquiredValue.trim() &&
+        step.phase &&
+        step.title &&
+        step.role
+      ) {
+        const entry = {
+          phase: String(step.phase),
+          title: String(step.title),
+          value: step.acquiredValue,
+        }
+        if (step.role === 'builder') {
+          grouped.builder.push(entry)
+        } else if (step.role === 'facilitator') {
+          grouped.facilitator.push(entry)
+        }
       }
     }
   }
