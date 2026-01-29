@@ -7,7 +7,7 @@
 
 'use client'
 
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -28,13 +28,8 @@ export function DashboardHeader({
   status,
   sessionTitle,
 }: DashboardHeaderProps) {
-  const router = useRouter()
   const isBuilder = role === 'builder'
   const isFacilitator = role === 'facilitator'
-
-  const handleBack = () => {
-    router.push('/')
-  }
 
   return (
     <header
@@ -46,15 +41,12 @@ export function DashboardHeader({
       )}
     >
       <div className="container max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
-        {/* Navigation - using onClick for reliable navigation */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-2"
-          onClick={handleBack}
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="font-medium">RapidProto</span>
+        {/* Navigation - using Link for reliable navigation */}
+        <Button asChild variant="ghost" size="sm" className="gap-2">
+          <Link href="/">
+            <ArrowLeft className="w-4 h-4" />
+            <span className="font-medium">RapidProto</span>
+          </Link>
         </Button>
 
         {/* Session Info */}

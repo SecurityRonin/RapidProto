@@ -108,7 +108,7 @@ export default function HomePage() {
 
         {/* Session History */}
         <div className="max-w-3xl mx-auto mt-12">
-          <SessionHistory maxItems={5} />
+          <SessionHistory maxItems={3} />
         </div>
       </section>
 

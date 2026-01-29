@@ -1,16 +1,35 @@
 /**
  * Session History Component
  * Displays completed sessions with export functionality
+ * Requires session code to reopen (weak authentication)
  */
 
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Clock, Download, Trash2, FileText, FileJson, ChevronDown, ChevronUp } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Clock, Download, Trash2, FileText, FileJson, ChevronDown, ChevronUp, Play, History } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  getSessions,
   getCompletedSessions,
   deleteSession,
   calculateSessionDuration,
@@ -20,6 +39,7 @@ import { exportSessionAsMarkdown, exportSessionAsJson, downloadFile } from '@/li
 import { cn } from '@/lib/utils'
 
 interface SessionHistoryProps {
+  /** Number of recent sessions to show directly (default 3) */
   maxItems?: number
   showExpanded?: boolean
 }
@@ -45,21 +65,78 @@ function formatDuration(minutes: number): string {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
 }
 
-export function SessionHistory({ maxItems = 5, showExpanded = false }: SessionHistoryProps) {
+export function SessionHistory({ maxItems = 3, showExpanded = false }: SessionHistoryProps) {
+  const router = useRouter()
   const [sessions, setSessions] = useState<Session[]>([])
+  const [allSessions, setAllSessions] = useState<Session[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
+
+  // Reopen dialog state
+  const [reopenDialog, setReopenDialog] = useState<{ open: boolean; session: Session | null }>({
+    open: false,
+    session: null,
+  })
+  const [codeInput, setCodeInput] = useState('')
+  const [codeError, setCodeError] = useState<string | null>(null)
+
+  // Dropdown selection
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string>('')
 
   // Load sessions on mount
   useEffect(() => {
     setMounted(true)
+    // Get all sessions (not just completed) sorted by updatedAt
+    const all = getSessions().sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+    setAllSessions(all)
     setSessions(getCompletedSessions())
   }, [])
 
   const handleDelete = (id: string) => {
     if (!confirm('Delete this session from history?')) return
     deleteSession(id)
+    const all = getSessions().sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+    setAllSessions(all)
     setSessions(getCompletedSessions())
+  }
+
+  // Initiate reopen with code verification
+  const handleReopenClick = (session: Session, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+    setReopenDialog({ open: true, session })
+    setCodeInput('')
+    setCodeError(null)
+  }
+
+  // Verify code and navigate
+  const handleVerifyAndReopen = () => {
+    if (!reopenDialog.session) return
+
+    const normalizedInput = codeInput.trim().toUpperCase()
+    const sessionCode = reopenDialog.session.id.slice(0, 6).toUpperCase()
+
+    if (normalizedInput === sessionCode || normalizedInput === reopenDialog.session.id.toUpperCase()) {
+      // Get stored role for this session, default to builder
+      const storedRole = typeof window !== 'undefined'
+        ? localStorage.getItem(`rapidproto_role_${reopenDialog.session.id}`)
+        : null
+      const role = storedRole || 'builder'
+
+      setReopenDialog({ open: false, session: null })
+      router.push(`/session/${reopenDialog.session.id}?role=${role}`)
+    } else {
+      setCodeError('Invalid session code. Please try again.')
+    }
+  }
+
+  // Handle dropdown selection
+  const handleHistorySelect = (sessionId: string) => {
+    if (!sessionId) return
+    const session = allSessions.find(s => s.id === sessionId)
+    if (session) {
+      handleReopenClick(session)
+    }
+    setSelectedHistoryId('')
   }
 
   const handleExportMarkdown = (session: Session) => {
@@ -153,7 +230,15 @@ export function SessionHistory({ maxItems = 5, showExpanded = false }: SessionHi
                   )}
 
                   {/* Action Buttons */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={(e) => handleReopenClick(session, e)}
+                    >
+                      <Play className="w-4 h-4 mr-2" />
+                      Reopen
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -194,12 +279,98 @@ export function SessionHistory({ maxItems = 5, showExpanded = false }: SessionHi
           )
         })}
 
-        {sessions.length > displaySessions.length && (
-          <p className="text-sm text-muted-foreground text-center pt-2">
-            +{sessions.length - displaySessions.length} more sessions
-          </p>
+        {/* Dropdown for all historical sessions */}
+        {allSessions.length > maxItems && (
+          <div className="pt-4 border-t">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+              <History className="w-4 h-4" />
+              <span>All Sessions ({allSessions.length})</span>
+            </div>
+            <Select value={selectedHistoryId} onValueChange={handleHistorySelect}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a session to reopen..." />
+              </SelectTrigger>
+              <SelectContent>
+                {allSessions.map(session => (
+                  <SelectItem key={session.id} value={session.id}>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={session.status === 'completed' ? 'secondary' : 'default'}
+                        className="text-xs"
+                      >
+                        {session.status}
+                      </Badge>
+                      <span className="truncate">
+                        {session.sessionTitle || 'Untitled'} - {formatDate(session.updatedAt)}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         )}
       </CardContent>
+
+      {/* Session Code Verification Dialog */}
+      <Dialog open={reopenDialog.open} onOpenChange={(open) => {
+        if (!open) {
+          setReopenDialog({ open: false, session: null })
+          setCodeError(null)
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enter Session Code</DialogTitle>
+            <DialogDescription>
+              Enter the 6-character session code to reopen this session.
+              This prevents unauthorized access.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {reopenDialog.session && (
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="font-medium">{reopenDialog.session.sessionTitle || 'Untitled Session'}</p>
+                <p className="text-sm text-muted-foreground">
+                  {formatDate(reopenDialog.session.updatedAt)} &bull; {reopenDialog.session.status}
+                </p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Input
+                placeholder="ABC123"
+                value={codeInput}
+                onChange={(e) => {
+                  setCodeInput(e.target.value.toUpperCase())
+                  setCodeError(null)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleVerifyAndReopen()
+                  }
+                }}
+                className="font-mono text-center text-lg tracking-widest uppercase"
+                maxLength={21}
+                autoFocus
+              />
+              {codeError && (
+                <p className="text-sm text-destructive">{codeError}</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setReopenDialog({ open: false, session: null })}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleVerifyAndReopen} disabled={!codeInput.trim()}>
+              Verify & Open
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
