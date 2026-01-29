@@ -46,6 +46,7 @@ import {
   SyncedInputsCard,
   ProgressSummary,
   ActionError,
+  AcquiredAnswersSidebar,
 } from './components'
 
 // =============================================================================
@@ -183,6 +184,9 @@ function SessionDashboardContent({ sessionId, propRole }: SessionDashboardConten
         isFacilitator && 'from-violet-100 to-violet-200/50 dark:from-violet-950/40 dark:to-violet-900/20'
       )}
     >
+      {/* Acquired Answers Sidebar - visible to both roles, synchronized via session steps */}
+      {sessionData.steps && <AcquiredAnswersSidebar steps={sessionData.steps} />}
+
       {/* Header */}
       <DashboardHeader
         sessionId={sessionId}
