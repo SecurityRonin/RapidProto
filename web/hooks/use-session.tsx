@@ -97,8 +97,15 @@ export function SessionProvider({
   const isMountedRef = useRef(true)
   const previousPhaseRef = useRef<Phase | null>(null)
   const phaseCompleteTriggeredRef = useRef(false)
+  // Use ref to access session in refresh without causing re-renders
+  const sessionRef = useRef<SessionStatusData | null>(null)
 
   const recoveryKey = `${RECOVERY_KEY_PREFIX}${sessionId}`
+
+  // Keep sessionRef in sync with session state (for use in refresh without dependency)
+  useEffect(() => {
+    sessionRef.current = session
+  }, [session])
 
   // Try to recover session from cache
   const tryRecoverFromCache = useCallback((): SessionStatusData | null => {
@@ -151,7 +158,8 @@ export function SessionProvider({
         clearCache() // Clear recovery data on successful load
       } else {
         // Try to recover from cache if normal load fails
-        if (!session) {
+        // Use ref to avoid dependency cycle (session in deps -> refresh updates session -> infinite loop)
+        if (!sessionRef.current) {
           const recovered = tryRecoverFromCache()
           if (recovered) {
             setSession(recovered)
@@ -175,7 +183,7 @@ export function SessionProvider({
         setLoading(false)
       }
     }
-  }, [sessionId, session, tryRecoverFromCache, clearCache])
+  }, [sessionId, tryRecoverFromCache, clearCache])
 
   // Initial fetch and polling setup
   useEffect(() => {
