@@ -69,12 +69,11 @@ export default function ExerciseGeneratorDemo() {
             </div>
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={() => setShowInfo(!showInfo)}
-              className="gap-2"
+              title={showInfo ? 'Hide Info' : 'Show Info'}
             >
               <Lightbulb className="w-4 h-4" />
-              {showInfo ? 'Hide' : 'Show'} Info
             </Button>
           </div>
         </div>

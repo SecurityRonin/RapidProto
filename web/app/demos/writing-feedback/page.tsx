@@ -59,12 +59,11 @@ export default function WritingFeedbackDemo() {
             </div>
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={() => setShowGuidelines(!showGuidelines)}
-              className="gap-2"
+              title={showGuidelines ? 'Hide Guidelines' : 'Show Guidelines'}
             >
               <Info className="w-4 h-4" />
-              {showGuidelines ? 'Hide' : 'Show'} Guidelines
             </Button>
           </div>
         </div>
