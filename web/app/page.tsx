@@ -1,15 +1,24 @@
 /**
  * RapidProto Landing Page
  * Dual-mode: Start as Builder or Join as Facilitator
+ * Plus: Demo Gallery and Template Library
  */
 
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ArrowRight, Code2, Users, Clock, Zap, Target, Rocket } from 'lucide-react'
+import { ArrowRight, Code2, Users, Clock, Zap, Target, Rocket, Sparkles, Package, FileText, Brain, TestTube } from 'lucide-react'
 import { SessionHistory } from '@/components/session/session-history'
 import { Logo } from '@/components/ui/logo'
+import { DEMOS, TEMPLATES, TEMPLATE_CATEGORIES } from '@/lib/demos-data'
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  FileText,
+  Brain,
+  Users,
+  TestTube,
+}
 
 export default function HomePage() {
   return (
@@ -200,6 +209,80 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Demo Gallery Preview */}
+      <section className="container mx-auto px-4 py-16 border-t">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-2xl font-semibold">Demo Gallery</h2>
+            <p className="text-muted-foreground">Interactive AI-powered prototypes</p>
+          </div>
+          <Button asChild variant="ghost" className="gap-2">
+            <Link href="/demos">
+              View all demos
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </Button>
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {DEMOS.map((demo) => {
+            const Icon = iconMap[demo.icon] || FileText
+            return (
+              <Link key={demo.slug} href={`/demos/${demo.slug}`}>
+                <Card className="h-full hover:shadow-md transition-all hover:border-primary/50 cursor-pointer">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded bg-primary/10">
+                        <Icon className="h-4 w-4 text-primary" />
+                      </div>
+                      <CardTitle className="text-sm">{demo.title}</CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <p className="text-xs text-muted-foreground line-clamp-2">{demo.description}</p>
+                    <div className="flex gap-1 mt-2">
+                      <Badge variant={demo.status === 'live' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                        {demo.status === 'live' ? 'Live' : 'Prototype'}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* Templates Preview */}
+      <section className="container mx-auto px-4 py-16 bg-muted/30 -mx-4 px-4">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-2xl font-semibold">Template Library</h2>
+            <p className="text-muted-foreground">{TEMPLATES.length} production-ready templates across {TEMPLATE_CATEGORIES.filter(c => TEMPLATES.some(t => t.category === c.id)).length} industries</p>
+          </div>
+          <Button asChild variant="ghost" className="gap-2">
+            <Link href="/templates">
+              Browse templates
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </Button>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {TEMPLATE_CATEGORIES.filter(c => TEMPLATES.some(t => t.category === c.id)).map((category) => {
+            const count = TEMPLATES.filter(t => t.category === category.id).length
+            return (
+              <Link key={category.id} href={`/templates?category=${category.id}`}>
+                <Badge variant="outline" className="px-3 py-1.5 hover:bg-primary/5 cursor-pointer">
+                  {category.name}
+                  <span className="ml-1 text-muted-foreground">({count})</span>
+                </Badge>
+              </Link>
+            )
+          })}
         </div>
       </section>
 
