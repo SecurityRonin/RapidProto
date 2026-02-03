@@ -197,7 +197,7 @@ export function SessionDevPanel({ sessionId }: SessionDevPanelProps) {
                 <span className="text-xs font-medium text-gray-600">
                   Session: {sessionId || 'None'}
                 </span>
-                {sessionData && (
+                {sessionData !== null && (
                   <Badge variant="outline" className="text-xs">
                     {(sessionData as { status?: string }).status || 'unknown'}
                   </Badge>
@@ -273,7 +273,7 @@ export function SessionDevPanel({ sessionId }: SessionDevPanelProps) {
                       </span>
                       <span className="break-all">
                         {entry.event}
-                        {entry.data && (
+                        {entry.data !== undefined && (
                           <span className="text-gray-500">
                             {' '}
                             {typeof entry.data === 'object'

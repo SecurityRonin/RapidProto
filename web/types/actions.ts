@@ -15,6 +15,15 @@ export type ActionErrorCode =
   | 'VALIDATION_ERROR'
   | 'CONFLICT'
   | 'INTERNAL_ERROR'
+  // Storage-specific error codes
+  | 'STORAGE_QUOTA_EXCEEDED'
+  | 'STORAGE_UNAVAILABLE'
+  | 'SESSION_CORRUPTED'
+  | 'SYNC_CONFLICT'
+  // Session-specific error codes
+  | 'SESSION_NOT_FOUND'
+  | 'SESSION_INVALID_STATE'
+  | 'STEP_NOT_FOUND'
 
 // Phase type used throughout
 export type BuilderPhase = 'discovery' | 'build' | 'demo'
