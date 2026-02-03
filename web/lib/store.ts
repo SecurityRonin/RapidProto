@@ -1,11 +1,18 @@
 /**
  * Local Storage Session Store
  * Simple client-side persistence for solo dev productivity timer
+ *
+ * Phase 3 Update: Now uses StorageAdapter internally for validated operations
  */
 
 import { nanoid } from 'nanoid'
+import { getLocalStorageAdapter, SessionsCollectionSchema } from '@/lib/storage'
+import type { SessionData, SessionStepData } from '@/lib/storage'
 
-// Types
+// =============================================================================
+// Types (maintaining backward compatibility with Date objects)
+// =============================================================================
+
 export type SessionStatus = 'active' | 'paused' | 'completed'
 export type Phase = 'discovery' | 'build' | 'demo'
 export type FacilitatorStage = 'expectations' | 'longterm' | 'close'
@@ -65,6 +72,77 @@ export interface Session {
 
 const STORAGE_KEY = 'rapidproto_sessions'
 
+// =============================================================================
+// Storage Adapter Integration
+// =============================================================================
+
+/**
+ * Get sessions using the validated StorageAdapter
+ * Falls back to legacy behavior if validation fails
+ */
+function getSessionsViaAdapter(): SessionData[] | null {
+  const adapter = getLocalStorageAdapter()
+  const result = adapter.get(STORAGE_KEY, SessionsCollectionSchema)
+
+  if (result.success) {
+    return result.data
+  }
+
+  // Log validation errors for debugging but don't crash
+  if (result.code === 'SESSION_CORRUPTED') {
+    console.warn('[store] Session data validation failed, attempting legacy recovery:', result.error)
+  }
+
+  return null
+}
+
+/**
+ * Save sessions using the validated StorageAdapter
+ */
+function saveSessionsViaAdapter(sessions: SessionData[]): boolean {
+  const adapter = getLocalStorageAdapter()
+  const result = adapter.set(STORAGE_KEY, sessions, SessionsCollectionSchema)
+
+  if (!result.success) {
+    console.error('[store] Failed to save sessions:', result.error, result.code)
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Convert Session (with Date objects) to SessionData (with ISO strings)
+ */
+function sessionToData(session: Session): SessionData {
+  return {
+    ...session,
+    phaseStartedAt: session.phaseStartedAt.toISOString(),
+    startedAt: session.startedAt.toISOString(),
+    pausedAt: session.pausedAt?.toISOString() ?? null,
+    completedAt: session.completedAt?.toISOString() ?? null,
+    createdAt: session.createdAt.toISOString(),
+    updatedAt: session.updatedAt.toISOString(),
+    steps: session.steps.map(stepToData),
+  }
+}
+
+/**
+ * Convert SessionStep (with Date objects) to SessionStepData (with ISO strings)
+ */
+function stepToData(step: SessionStep): SessionStepData {
+  return {
+    ...step,
+    startedAt: step.startedAt?.toISOString() ?? null,
+    completedAt: step.completedAt?.toISOString() ?? null,
+    createdAt: step.createdAt.toISOString(),
+  }
+}
+
+// =============================================================================
+// Legacy Storage (fallback for validation failures)
+// =============================================================================
+
 // Helper to safely access localStorage (SSR-safe)
 function getStorage(): Storage | null {
   if (typeof window === 'undefined') return null
@@ -73,6 +151,14 @@ function getStorage(): Storage | null {
 
 // Get all sessions
 export function getSessions(): Session[] {
+  // Try validated adapter first
+  const validatedData = getSessionsViaAdapter()
+  if (validatedData !== null) {
+    // Data is valid, rehydrate dates and return
+    return validatedData.map(rehydrateSessionFromData)
+  }
+
+  // Fall back to legacy approach for corrupted/old data
   const storage = getStorage()
   if (!storage) return []
 
@@ -95,9 +181,6 @@ export function getSession(id: string): Session | null {
 
 // Save session
 export function saveSession(session: Session): void {
-  const storage = getStorage()
-  if (!storage) return
-
   const sessions = getSessions()
   const index = sessions.findIndex(s => s.id === session.id)
 
@@ -107,19 +190,58 @@ export function saveSession(session: Session): void {
     sessions.push(session)
   }
 
-  storage.setItem(STORAGE_KEY, JSON.stringify(sessions))
+  // Convert to data format and save via validated adapter
+  const sessionsData = sessions.map(sessionToData)
+  const saved = saveSessionsViaAdapter(sessionsData)
+
+  // Fall back to legacy save if adapter fails
+  if (!saved) {
+    const storage = getStorage()
+    if (!storage) return
+    storage.setItem(STORAGE_KEY, JSON.stringify(sessions))
+  }
 }
 
 // Delete session
 export function deleteSession(id: string): void {
-  const storage = getStorage()
-  if (!storage) return
-
   const sessions = getSessions().filter(s => s.id !== id)
-  storage.setItem(STORAGE_KEY, JSON.stringify(sessions))
+
+  // Convert and save via validated adapter
+  const sessionsData = sessions.map(sessionToData)
+  const saved = saveSessionsViaAdapter(sessionsData)
+
+  // Fall back to legacy save if adapter fails
+  if (!saved) {
+    const storage = getStorage()
+    if (!storage) return
+    storage.setItem(STORAGE_KEY, JSON.stringify(sessions))
+  }
 }
 
-// Rehydrate dates from JSON
+/**
+ * Rehydrate Session from validated SessionData (ISO strings → Date objects)
+ */
+function rehydrateSessionFromData(data: SessionData): Session {
+  return {
+    ...data,
+    phaseStartedAt: new Date(data.phaseStartedAt),
+    startedAt: new Date(data.startedAt),
+    pausedAt: data.pausedAt ? new Date(data.pausedAt) : null,
+    completedAt: data.completedAt ? new Date(data.completedAt) : null,
+    createdAt: new Date(data.createdAt),
+    updatedAt: new Date(data.updatedAt),
+    steps: data.steps.map((step): SessionStep => ({
+      ...step,
+      startedAt: step.startedAt ? new Date(step.startedAt) : null,
+      completedAt: step.completedAt ? new Date(step.completedAt) : null,
+      createdAt: new Date(step.createdAt),
+    })),
+  }
+}
+
+/**
+ * Rehydrate dates from JSON (legacy fallback for corrupted data)
+ */
 function rehydrateSession(session: any): Session {
   return {
     ...session,

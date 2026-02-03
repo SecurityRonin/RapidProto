@@ -1,6 +1,6 @@
 /**
  * Client-side actions using localStorage
- * No backend, no auth - just browser storage
+ * Refactored with session-operations helpers (Phase 5)
  */
 
 'use client'
@@ -10,26 +10,48 @@ import {
   getSession,
   saveSession,
   calculateTimeRemaining,
+  getSessions,
   type Session,
   type Phase,
-  type FacilitatorStage,
 } from './store'
+import { SessionError } from './utils/errors'
+import {
+  getSessionOrThrow,
+  withSessionMutate,
+  getNextPhase,
+  getPreviousPhase,
+  getNextStage,
+  getPreviousStage,
+  validateCanPause,
+  validateCanResume,
+  validateCanAdvancePhase,
+  validateCanRegressPhase,
+  validateCanAdvanceStage,
+  validateCanRegressStage,
+  updateSyncedInputs,
+  SYNC_MAP,
+  type OperationResult,
+} from './session-operations'
 
-export type ActionResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: string }
+export type ActionResult<T> = OperationResult<T>
 
-// Create a new session
+// =============================================================================
+// Session Creation
+// =============================================================================
+
 export function createSession(title?: string): ActionResult<Session> {
   try {
     const session = createNewSession(title)
     return { success: true, data: session }
-  } catch (error) {
+  } catch {
     return { success: false, error: 'Failed to create session' }
   }
 }
 
-// Get session status
+// =============================================================================
+// Session Status
+// =============================================================================
+
 export function getSessionStatus(sessionId: string): ActionResult<{
   session: Session
   currentPhase: Phase
@@ -38,32 +60,16 @@ export function getSessionStatus(sessionId: string): ActionResult<{
   stepsTotal: number
 }> {
   try {
-    const session = getSession(sessionId)
-    if (!session) {
-      return { success: false, error: 'Session not found' }
-    }
-
+    const session = getSessionOrThrow(sessionId)
     const timeRemaining = calculateTimeRemaining(session)
 
     // Check user's role from localStorage to filter correct steps
     const role = localStorage.getItem(`rapidproto_role_${sessionId}`) || 'builder'
 
     // Filter steps based on role
-    // - Builder: filter by currentPhase (discovery, build, demo)
-    // - Facilitator: filter by facilitatorStage (expectations, longterm, close)
-    let phaseSteps: typeof session.steps
-    if (role === 'facilitator') {
-      phaseSteps = session.steps.filter(s =>
-        s.role === 'facilitator' && s.phase === session.facilitatorStage
-      )
-    } else {
-      phaseSteps = session.steps.filter(s =>
-        s.role === 'builder' && s.phase === session.currentPhase
-      )
-    }
-
-    const stepsCompleted = phaseSteps.filter(s => s.status === 'completed').length
-    const stepsTotal = phaseSteps.length
+    const phaseSteps = role === 'facilitator'
+      ? session.steps.filter(s => s.role === 'facilitator' && s.phase === session.facilitatorStage)
+      : session.steps.filter(s => s.role === 'builder' && s.phase === session.currentPhase)
 
     return {
       success: true,
@@ -71,258 +77,152 @@ export function getSessionStatus(sessionId: string): ActionResult<{
         session,
         currentPhase: session.currentPhase,
         timeRemaining,
-        stepsCompleted,
-        stepsTotal,
+        stepsCompleted: phaseSteps.filter(s => s.status === 'completed').length,
+        stepsTotal: phaseSteps.length,
       },
     }
   } catch (error) {
+    if (error instanceof SessionError) {
+      return { success: false, error: error.message, code: error.code }
+    }
     return { success: false, error: 'Failed to get session status' }
   }
 }
 
-// Pause session
+// =============================================================================
+// Session State Management
+// =============================================================================
+
 export function pauseSession(sessionId: string): ActionResult<Session> {
-  try {
-    const session = getSession(sessionId)
-    if (!session) {
-      return { success: false, error: 'Session not found' }
-    }
-
-    if (session.status !== 'active') {
-      return { success: false, error: 'Session is not active' }
-    }
-
+  return withSessionMutate(sessionId, 'pauseSession', (session) => {
+    validateCanPause(session)
     session.status = 'paused'
     session.pausedAt = new Date()
-    session.updatedAt = new Date()
-    saveSession(session)
-
-    return { success: true, data: session }
-  } catch (error) {
-    return { success: false, error: 'Failed to pause session' }
-  }
+    return session
+  })
 }
 
-// Resume session
 export function resumeSession(sessionId: string): ActionResult<Session> {
-  try {
-    const session = getSession(sessionId)
-    if (!session) {
-      return { success: false, error: 'Session not found' }
-    }
+  return withSessionMutate(sessionId, 'resumeSession', (session) => {
+    validateCanResume(session)
 
-    if (session.status !== 'paused') {
-      return { success: false, error: 'Session is not paused' }
-    }
-
-    // Calculate paused duration and add to total
+    // Calculate paused duration and adjust phase start time
     if (session.pausedAt) {
       const pausedDuration = Date.now() - session.pausedAt.getTime()
       session.totalPausedTime += pausedDuration
-
-      // Adjust phase start time to account for pause
       session.phaseStartedAt = new Date(session.phaseStartedAt.getTime() + pausedDuration)
     }
 
     session.status = 'active'
     session.pausedAt = null
-    session.updatedAt = new Date()
-    saveSession(session)
-
-    return { success: true, data: session }
-  } catch (error) {
-    return { success: false, error: 'Failed to resume session' }
-  }
+    return session
+  })
 }
 
-// Advance to next phase
-export function advancePhase(sessionId: string): ActionResult<Session> {
-  try {
-    const session = getSession(sessionId)
-    if (!session) {
-      return { success: false, error: 'Session not found' }
-    }
-
-    const phaseOrder: Phase[] = ['discovery', 'build', 'demo']
-    const currentIndex = phaseOrder.indexOf(session.currentPhase)
-
-    if (currentIndex >= phaseOrder.length - 1) {
-      return { success: false, error: 'Already in final phase' }
-    }
-
-    session.currentPhase = phaseOrder[currentIndex + 1]
-    session.phaseStartedAt = new Date()
-    session.updatedAt = new Date()
-    saveSession(session)
-
-    return { success: true, data: session }
-  } catch (error) {
-    return { success: false, error: 'Failed to advance phase' }
-  }
-}
-
-// Go back to previous phase (builder)
-export function regressPhase(sessionId: string): ActionResult<Session> {
-  try {
-    const session = getSession(sessionId)
-    if (!session) {
-      return { success: false, error: 'Session not found' }
-    }
-
-    const phaseOrder: Phase[] = ['discovery', 'build', 'demo']
-    const currentIndex = phaseOrder.indexOf(session.currentPhase)
-
-    if (currentIndex <= 0) {
-      return { success: false, error: 'Already in first phase' }
-    }
-
-    session.currentPhase = phaseOrder[currentIndex - 1]
-    session.phaseStartedAt = new Date()
-    session.updatedAt = new Date()
-    saveSession(session)
-
-    return { success: true, data: session }
-  } catch (error) {
-    return { success: false, error: 'Failed to go back' }
-  }
-}
-
-// Complete session
 export function completeSession(sessionId: string): ActionResult<Session> {
-  try {
-    const session = getSession(sessionId)
-    if (!session) {
-      return { success: false, error: 'Session not found' }
-    }
-
+  return withSessionMutate(sessionId, 'completeSession', (session) => {
     session.status = 'completed'
     session.completedAt = new Date()
-    session.updatedAt = new Date()
-    saveSession(session)
-
-    return { success: true, data: session }
-  } catch (error) {
-    return { success: false, error: 'Failed to complete session' }
-  }
+    return session
+  })
 }
 
-// Advance to next facilitator stage
+// =============================================================================
+// Phase Navigation (Builder)
+// =============================================================================
+
+export function advancePhase(sessionId: string): ActionResult<Session> {
+  return withSessionMutate(sessionId, 'advancePhase', (session) => {
+    validateCanAdvancePhase(session)
+    session.currentPhase = getNextPhase(session.currentPhase)!
+    session.phaseStartedAt = new Date()
+    return session
+  })
+}
+
+export function regressPhase(sessionId: string): ActionResult<Session> {
+  return withSessionMutate(sessionId, 'regressPhase', (session) => {
+    validateCanRegressPhase(session)
+    session.currentPhase = getPreviousPhase(session.currentPhase)!
+    session.phaseStartedAt = new Date()
+    return session
+  })
+}
+
+// =============================================================================
+// Stage Navigation (Facilitator)
+// =============================================================================
+
 export function advanceFacilitatorStage(sessionId: string): ActionResult<Session> {
-  try {
-    const session = getSession(sessionId)
-    if (!session) {
-      return { success: false, error: 'Session not found' }
-    }
-
-    const stageOrder: FacilitatorStage[] = ['expectations', 'longterm', 'close']
-    const currentIndex = stageOrder.indexOf(session.facilitatorStage)
-
-    if (currentIndex >= stageOrder.length - 1) {
-      return { success: false, error: 'Already in final stage' }
-    }
-
-    session.facilitatorStage = stageOrder[currentIndex + 1]
-    session.updatedAt = new Date()
-    saveSession(session)
-
-    return { success: true, data: session }
-  } catch (error) {
-    return { success: false, error: 'Failed to advance stage' }
-  }
+  return withSessionMutate(sessionId, 'advanceFacilitatorStage', (session) => {
+    validateCanAdvanceStage(session)
+    session.facilitatorStage = getNextStage(session.facilitatorStage)!
+    return session
+  })
 }
 
-// Go back to previous facilitator stage
 export function regressFacilitatorStage(sessionId: string): ActionResult<Session> {
-  try {
-    const session = getSession(sessionId)
-    if (!session) {
-      return { success: false, error: 'Session not found' }
-    }
-
-    const stageOrder: FacilitatorStage[] = ['expectations', 'longterm', 'close']
-    const currentIndex = stageOrder.indexOf(session.facilitatorStage)
-
-    if (currentIndex <= 0) {
-      return { success: false, error: 'Already in first stage' }
-    }
-
-    session.facilitatorStage = stageOrder[currentIndex - 1]
-    session.updatedAt = new Date()
-    saveSession(session)
-
-    return { success: true, data: session }
-  } catch (error) {
-    return { success: false, error: 'Failed to go back' }
-  }
+  return withSessionMutate(sessionId, 'regressFacilitatorStage', (session) => {
+    validateCanRegressStage(session)
+    session.facilitatorStage = getPreviousStage(session.facilitatorStage)!
+    return session
+  })
 }
 
-// Update step with optional acquiredValue for sync
+// =============================================================================
+// Step Updates
+// =============================================================================
+
 export function updateStep(
   stepId: string,
   updates: { status?: string; notes?: string; acquiredValue?: string }
 ): ActionResult<Session['steps'][0]> {
   try {
-    // Find session containing this step
-    const sessions = JSON.parse(localStorage.getItem('rapidproto_sessions') || '[]')
+    // Get all sessions to find the one containing this step
+    const allSessions = getSessions()
 
-    for (const sessionData of sessions) {
-      const stepIndex = sessionData.steps.findIndex((s: any) => s.id === stepId)
+    for (const session of allSessions) {
+      const stepIndex = session.steps.findIndex(s => s.id === stepId)
       if (stepIndex >= 0) {
-        const step = sessionData.steps[stepIndex]
+        const step = session.steps[stepIndex]
 
+        // Apply status update
         if (updates.status) {
-          step.status = updates.status
+          step.status = updates.status as any
           if (updates.status === 'completed') {
-            step.completedAt = new Date().toISOString()
+            step.completedAt = new Date()
           } else if (updates.status === 'in_progress') {
-            step.startedAt = new Date().toISOString()
+            step.startedAt = new Date()
           }
         }
 
+        // Apply notes update
         if (updates.notes !== undefined) {
           step.notes = updates.notes
         }
 
-        // Handle acquired value for bidirectional sync
+        // Apply acquired value and sync
         if (updates.acquiredValue !== undefined) {
           step.acquiredValue = updates.acquiredValue
 
-          // Update synced inputs when builder step acquiredValue changes
+          // Update synced inputs when builder step changes
           if (step.role === 'builder') {
-            updateSessionSyncedInputs(sessionData)
+            updateSyncedInputs(session)
           }
         }
 
-        sessionData.updatedAt = new Date().toISOString()
-        localStorage.setItem('rapidproto_sessions', JSON.stringify(sessions))
+        session.updatedAt = new Date()
+        saveSession(session)
 
         return { success: true, data: step }
       }
     }
 
-    return { success: false, error: 'Step not found' }
-  } catch (error) {
+    return { success: false, error: 'Step not found', code: 'STEP_NOT_FOUND' }
+  } catch {
     return { success: false, error: 'Failed to update step' }
   }
 }
 
-// Helper to update synced inputs from builder's acquiredValues
-function updateSessionSyncedInputs(sessionData: any): void {
-  const builderSteps = sessionData.steps.filter((s: any) => s.role === 'builder')
-
-  const syncMap: Record<string, string> = {
-    'Define the core feature': 'coreFeature',
-    'Pick a template': 'template',
-    'List required changes': 'requiredChanges',
-  }
-
-  const syncedInputs: Record<string, string> = {}
-  for (const step of builderSteps) {
-    const key = syncMap[step.title]
-    if (key && step.acquiredValue) {
-      syncedInputs[key] = step.acquiredValue
-    }
-  }
-
-  sessionData.syncedInputs = syncedInputs
-}
+// Re-export SYNC_MAP for components that need it
+export { SYNC_MAP }

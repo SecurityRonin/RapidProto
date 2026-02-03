@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react'
 import { Plus, X } from 'lucide-react'
 import { saveClientInfo } from '@/lib/actions'
+import { useSafeTimeout, useDebouncedCallback } from '@/hooks/use-safe-timers'
 import { cn } from '@/lib/utils'
 import type { ClientInfo } from '@/lib/db/schema'
 
@@ -18,6 +19,7 @@ interface ClientInfoFormProps {
 }
 
 export function ClientInfoForm({ sessionId, initialData, autoSave = false }: ClientInfoFormProps) {
+  const safeSetTimeout = useSafeTimeout()
   const [isSaving, setIsSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -60,18 +62,18 @@ export function ClientInfoForm({ sessionId, initialData, autoSave = false }: Cli
   const [timeline, setTimeline] = useState(initialData?.timeline || '')
   const [decisionMakers, setDecisionMakers] = useState(initialData?.decisionMakers || '')
 
-  // Auto-save with debounce
+  // Auto-save with debounce using safe timer hook
+  const debouncedAutoSave = useDebouncedCallback(() => {
+    if (clientName && problemStatement) {
+      handleSave()
+    }
+  }, 2000)
+
   useEffect(() => {
-    if (!autoSave) return
-
-    const timer = setTimeout(() => {
-      if (clientName && problemStatement) {
-        handleSave()
-      }
-    }, 2000)
-
-    return () => clearTimeout(timer)
-  }, [clientName, problemStatement, autoSave])
+    if (autoSave) {
+      debouncedAutoSave()
+    }
+  }, [clientName, problemStatement, autoSave, debouncedAutoSave])
 
   const validateEmail = (email: string) => {
     if (!email) return true // Email is optional
@@ -121,7 +123,7 @@ export function ClientInfoForm({ sessionId, initialData, autoSave = false }: Cli
       })
 
       setSaveSuccess(true)
-      setTimeout(() => setSaveSuccess(false), 3000)
+      safeSetTimeout(() => setSaveSuccess(false), 3000)
     } catch (error) {
       console.error('Failed to save client info:', error)
     } finally {
